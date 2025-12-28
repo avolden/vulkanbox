@@ -1,5 +1,7 @@
 #pragma once
 
+#define VK_NO_PROTOTYPES
+
 #define VMA_CONFIGURATION_USER_INCLUDES_H <vkb/vk/vma/vma_user.hh>
 #define VMA_ASSERT(expr) vkb::log::assert(expr, "vma")
 // #define VMA_DEBUG_LOG_FORMAT(format, ...) vkb::log::info("vma: " format, __VA_ARGS__)
@@ -22,7 +24,7 @@
 #endif
 #include <vk_mem_alloc.h>
 #ifdef OLD_VALUE
-#define __INTELLISENSE__
+#define __INTELLISENSE__ OLD_VALUE
 #undef OLD_VALUE
 #endif
 #pragma clang diagnostic pop

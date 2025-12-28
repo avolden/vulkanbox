@@ -401,6 +401,18 @@ namespace vkb::vk
 		set_info.layout = pipe_layout_;
 		set_info.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		vkCmdBindDescriptorSets2(cmd, &set_info);
-		vkCmdDrawIndexed(cmd, 6, 3, 0, 0, 0);
+		// vkCmdDrawIndexed(cmd, 6, 3, 0, 0, 0);
+		VkMultiDrawIndexedInfoEXT ext[3] {};
+		ext[0].firstIndex = 0;
+		ext[0].indexCount = 2;
+		ext[0].vertexOffset = 0;
+		ext[1].firstIndex = 2;
+		ext[1].indexCount = 2;
+		ext[1].vertexOffset = 0;
+		ext[2].firstIndex = 4;
+		ext[2].indexCount = 2;
+		ext[2].vertexOffset = 0;
+		vkCmdDrawMultiIndexedEXT(cmd, 3, ext, 1, 0, sizeof(VkMultiDrawIndexedInfoEXT),
+		                         nullptr);
 	}
 } // namespace vkb::vk

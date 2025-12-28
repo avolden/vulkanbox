@@ -4,7 +4,7 @@
 #include "../math/vec2.hh"
 #include "../math/vec4.hh"
 
-#include <vulkan/vulkan.h>
+#include <volk/volk.h>
 
 #include "assets/model.hh"
 #include "assets/texture.hh"

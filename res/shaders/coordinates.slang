@@ -1,7 +1,7 @@
 struct vertex
 {
 	float4 pos;
-	uint instance_id : SV_VertexID;
+	uint instance_id : SV_DrawIndex;
 };
 
 struct camera
@@ -20,7 +20,7 @@ ParameterBlock<dynamic_data> dynamic_set;
 
 static const float4 lines_col[] =
 {
-	{1.f, 1.f, 1.f, 1.f},
+	// {1.f, 1.f, 1.f, 1.f},
 	{1.f, 0.f, 0.f, 1.f},
 	{0.f, 1.f, 0.f, 1.f},
 	{0.f, 0.f, 1.f, 1.f}

@@ -4,7 +4,7 @@
 #include <vector.hh>
 
 #include "vma/vma.hh"
-#include <vulkan/vulkan.h>
+#include <volk/volk.h>
 
 #include "buffer.hh"
 #include "image.hh"
@@ -19,6 +19,7 @@ namespace vkb::vk
 		struct queue_indices
 		{
 			uint32_t graphics = UINT32_MAX;
+			uint32_t compute = UINT32_MAX;
 			uint32_t present = UINT32_MAX;
 		};
 
@@ -44,6 +45,7 @@ namespace vkb::vk
 		VmaAllocator get_allocator();
 
 		VkQueue get_graphics_queue();
+		VkQueue get_compute_queue();
 		VkQueue get_present_queue();
 
 		VkFormat find_supported_format(mc::array_view<VkFormat> formats,
@@ -104,6 +106,7 @@ namespace vkb::vk
 		VmaAllocator allocator_ {nullptr};
 
 		VkQueue graphics_queue_ {nullptr};
+		VkQueue compute_queue_ {nullptr};
 		VkQueue present_queue_ {nullptr};
 
 		VkCommandPool command_pool_ {nullptr};

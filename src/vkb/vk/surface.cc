@@ -1,12 +1,5 @@
 #include "surface.hh"
 
-#ifdef VKB_WINDOWS
-#include <vulkan/vulkan_win32.h>
-#include <win32/misc.h>
-#elif defined(VKB_LINUX)
-#include <vulkan/vulkan_wayland.h>
-#endif
-
 #include "../win/display.hh"
 
 #include "../log.hh"

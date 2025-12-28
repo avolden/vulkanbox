@@ -41,18 +41,6 @@ local lib_includes = merge(wayland_client.includes, wayland_server.includes,
 
 local protocols_source_dir = mg.get_build_dir() .. 'deps/wayland/'
 
-local wayland_protocols_prj = mg.project({
-	name = "wayland_protocols",
-	type = mg.project_type.sources,
-	sources = {
-		protocols_source_dir .. 'wayland-client-protocol.c',
-		protocols_source_dir .. 'wayland-xdg-shell-client-protocol.c',
-		protocols_source_dir .. 'wayland-xdg-decoration-protocol.c'},
-	compile_options = {'-g', '-O2', '-x', 'c'},
-	includes = lib_includes,
-	dependencies = {wayland_lib_prj}
-})
-
 local wayland_client_root = package_property('wayland-client', 'pkgdatadir') .. '/'
 local wayland_protocols_root = package_property('wayland-protocols', 'pkgdatadir') .. '/'
 
@@ -69,7 +57,22 @@ local protocols = {
 		input = wayland_protocols_root	 .. 'unstable/xdg-decoration/xdg-decoration-unstable-v1.xml',
 		output = protocols_source_dir .. 'wayland-xdg-decoration-protocol'
 	},
+	{
+		input = wayland_protocols_root	 .. 'unstable/pointer-constraints/pointer-constraints-unstable-v1.xml',
+		output = protocols_source_dir .. 'pointer-constraints'
+	},
 }
+
+local wayland_protocols_prj = mg.project({
+	name = "wayland_protocols",
+	type = mg.project_type.sources,
+	sources = {
+		protocols_source_dir .. '**.c'
+	},
+	compile_options = {'-g', '-O2', '-x', 'c'},
+	includes = lib_includes,
+	dependencies = {wayland_lib_prj}
+})
 
 for _,protocol in ipairs(protocols) do
 	generate_protocol(wayland_protocols_prj, protocol.input, protocol.output)

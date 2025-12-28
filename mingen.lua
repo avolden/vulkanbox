@@ -9,6 +9,7 @@ imgui = require('deps/imgui')
 mincore = require('deps/mincore')
 stb = require('deps/stb')
 vma = require('deps/vma')
+volk = require('deps/volk')
 slang = require('deps/slang')
 yyjson = require('deps/yyjson')
 
@@ -20,6 +21,7 @@ include_dirs = merge(
 	mincore.includes,
 	-- stb.includes
 	vma.includes,
+	-- volk.includes,
 	yyjson.includes
 )
 
@@ -97,7 +99,7 @@ local vkb = mg.project({
 	includes = include_dirs,
 	compile_options = merge('-g', '-std=c++20', '-Wall', '-Wextra', '-Werror', '-nostdinc++', platform_define, platform_compile_options),
 	link_options = merge(platform_link_options, '-g'),
-	dependencies = merge(imgui.project, vulkan.project, mincore.project, yyjson.project, platform_deps),
+	dependencies = merge(imgui.project, mincore.project, yyjson.project, platform_deps),
 	release = {
 		compile_options = {'-O2'}
 	}

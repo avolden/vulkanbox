@@ -1,6 +1,7 @@
 #include "instance.hh"
 
 #include "../log.hh"
+#include <array.hh>
 #include <string.h>
 #include <string_view.hh>
 #include <vector.hh>
@@ -49,6 +50,8 @@ namespace vkb::vk
 	{
 		instance_ = this;
 
+		volkInitialize();
+
 		bool created = create_instance(enable_validation);
 		log::assert(created, "Failed to create VkInstance");
 
@@ -79,6 +82,8 @@ namespace vkb::vk
 
 		if (inst_)
 			vkDestroyInstance(inst_, nullptr);
+
+		volkFinalize();
 	}
 
 	void instance::create_device(surface const& surface)
@@ -444,10 +449,10 @@ namespace vkb::vk
 		vkEnumerateInstanceExtensionProperties(nullptr, &ext_cnt, nullptr);
 		mc::vector<VkExtensionProperties> exts(ext_cnt);
 		vkEnumerateInstanceExtensionProperties(nullptr, &ext_cnt, exts.data());
-		log::debug("Available exts: ");
-		for (uint32_t i {0}; i < exts.size(); ++i)
-			log::debug("    %s - %u", exts[i].extensionName, exts[i].specVersion);
-		log::debug(" ");
+		// log::debug("Available exts: ");
+		// for (uint32_t i {0}; i < exts.size(); ++i)
+		// 	log::debug("    %s - %u", exts[i].extensionName, exts[i].specVersion);
+		// log::debug(" ");
 
 		VkDebugUtilsMessengerCreateInfoEXT debug_create_info {};
 		debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -463,6 +468,10 @@ namespace vkb::vk
 		create_info.pNext = &debug_create_info;
 
 		VkResult res = vkCreateInstance(&create_info, nullptr, &inst_);
+
+		if (res == VK_SUCCESS)
+			volkLoadInstanceOnly(inst_);
+
 		return res == VK_SUCCESS;
 	}
 
@@ -566,7 +575,8 @@ namespace vkb::vk
 			    props.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
 			    feats.geometryShader && feats.samplerAnisotropy &&
 			    families.graphics != UINT32_MAX && families.present != UINT32_MAX &&
-			    !support.formats.empty() && !support.present_modes.empty())
+			    families.compute != UINT32_MAX && !support.formats.empty() &&
+			    !support.present_modes.empty())
 			{
 				selected = i;
 				queue_indices_ = families;
@@ -598,6 +608,8 @@ namespace vkb::vk
 		{
 			if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
 				res.graphics = i;
+			if (families[i].queueFlags & VK_QUEUE_COMPUTE_BIT)
+				res.compute = i;
 			bool present {false};
 			present = surface.check_present_queue(device, i);
 			if (present)
@@ -622,8 +634,20 @@ namespace vkb::vk
 			queues.emplace_back(queue_create_info);
 		}
 
+		// Compute queue
+		if (queue_indices_.compute != queue_indices_.graphics)
+		{
+			VkDeviceQueueCreateInfo queue_create_info {};
+			queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+			queue_create_info.queueFamilyIndex = queue_indices_.compute;
+			queue_create_info.queueCount = 1;
+			queue_create_info.pQueuePriorities = &priority;
+			queues.emplace_back(queue_create_info);
+		}
+
 		// Present Queue
-		if (queue_indices_.present != queue_indices_.graphics)
+		if (queue_indices_.present != queue_indices_.compute &&
+		    queue_indices_.present != queue_indices_.graphics)
 		{
 			VkDeviceQueueCreateInfo queue_create_info {};
 			queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -637,8 +661,13 @@ namespace vkb::vk
 		feats.samplerAnisotropy = VK_TRUE;
 		feats.wideLines = VK_TRUE;
 
+		VkPhysicalDeviceMultiDrawFeaturesEXT multiDraw_feats {};
+		multiDraw_feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_FEATURES_EXT;
+		multiDraw_feats.multiDraw = VK_TRUE;
+
 		VkPhysicalDeviceVulkan13Features vulkan13_feats {};
 		vulkan13_feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+		vulkan13_feats.pNext = &multiDraw_feats;
 		vulkan13_feats.dynamicRendering = true;
 
 		VkDeviceCreateInfo create_info {};
@@ -648,24 +677,36 @@ namespace vkb::vk
 		create_info.pQueueCreateInfos = queues.data();
 		create_info.pEnabledFeatures = &feats;
 
-		char const* required_exts[] {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-		create_info.enabledExtensionCount = 1;
-		create_info.ppEnabledExtensionNames = required_exts;
+		mc::array<char const*, 3> required_exts {
+			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+			VK_EXT_MULTI_DRAW_EXTENSION_NAME,
+			VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
+		};
+		create_info.enabledExtensionCount = required_exts.size();
+		create_info.ppEnabledExtensionNames = required_exts.data();
 
 		VkResult res = vkCreateDevice(phys_device_, &create_info, nullptr, &device_);
+		if (res == VK_SUCCESS)
+			volkLoadDevice(device_);
 
 		vkGetDeviceQueue(device_, queue_indices_.graphics, 0, &graphics_queue_);
 		vkGetDeviceQueue(device_, queue_indices_.present, 0, &present_queue_);
+
 		return res == VK_SUCCESS;
 	}
 
 	bool instance::create_allocator()
 	{
+		VmaVulkanFunctions funcs {};
+		funcs.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+		funcs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+
 		VmaAllocatorCreateInfo create_info {};
 		create_info.physicalDevice = phys_device_;
 		create_info.device = device_;
 		create_info.instance = inst_;
 		create_info.vulkanApiVersion = VK_API_VERSION_1_4;
+		create_info.pVulkanFunctions = &funcs;
 
 		VkResult res = vmaCreateAllocator(&create_info, &allocator_);
 

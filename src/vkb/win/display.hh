@@ -21,6 +21,8 @@ struct libdecor;
 struct wl_surface;
 struct wl_pointer;
 struct wl_keyboard;
+struct zwp_pointer_constraints_v1;
+struct zwp_confined_pointer_v1;
 #endif
 
 namespace vkb
@@ -52,6 +54,9 @@ namespace vkb
 		wl_display*    get_display();
 		wl_compositor* get_compositor();
 		libdecor*      get_libdecor();
+
+		void lock_pointer(wl_surface* win);
+		void unlock_pointer();
 #endif
 
 	private:
@@ -97,6 +102,8 @@ namespace vkb
 		static void keyboard_repeat_info(void* ud, wl_keyboard* keyboard, int32_t rate,
 		                                 int32_t delay);
 
+		// static void locked_pointer_locked
+
 		wl_display*    display_ {nullptr};
 		wl_compositor* compositor_ {nullptr};
 		wl_shm*        shm_ {nullptr};
@@ -105,10 +112,12 @@ namespace vkb
 
 		wl_output* output_ {nullptr};
 
-		wl_pointer*  pointer_ {nullptr};
-		window*      pointer_window_ {nullptr};
-		wl_keyboard* keyboard_ {nullptr};
-		window*      keyboard_window_ {nullptr};
+		wl_pointer*                 pointer_ {nullptr};
+		window*                     pointer_window_ {nullptr};
+		wl_keyboard*                keyboard_ {nullptr};
+		window*                     keyboard_window_ {nullptr};
+		zwp_pointer_constraints_v1* pointer_constraints_ {nullptr};
+		zwp_confined_pointer_v1*    pointer_lock_ {nullptr};
 
 		xdg_wm_base*                wm_base_ {nullptr};
 		zxdg_decoration_manager_v1* decoration_mgr {nullptr};

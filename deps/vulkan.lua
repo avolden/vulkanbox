@@ -17,21 +17,7 @@ if not string.find(vulkan_dir, '/', #vulkan_dir - 1) and not string.find(vulkan_
 end
 
 if (mg.platform() == 'windows') then
-	local vulkan = mg.project({
-		name = 'vulkan',
-		type = mg.project_type.prebuilt,
-		static_libraries = {'vulkan-1.lib'},
-		static_library_directories = {vulkan_dir .. 'lib/'}
-	})
-
-	return {project = vulkan, includes = {vulkan_dir .. 'Include/'}}
+	return {includes = {vulkan_dir .. 'Include/'}}
 elseif (mg.platform() == 'linux') then
-	local vulkan = mg.project({
-		name = 'vulkan',
-		type = mg.project_type.prebuilt,
-		static_libraries = {'vulkan'},
-		static_library_directories = {vulkan_dir .. 'lib/'}
-	})
-
-	return {project = vulkan, includes = {vulkan_dir .. 'include/'}}
+	return {includes = {vulkan_dir .. 'include/'}}
 end

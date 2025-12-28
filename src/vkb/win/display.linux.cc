@@ -4,6 +4,7 @@
 #include "window.hh"
 
 #include <libdecor.h>
+#include <pointer-constraints.h>
 #include <wayland-client.h>
 #include <wayland-xdg-decoration-protocol.h>
 #include <wayland-xdg-shell-client-protocol.h>
@@ -19,6 +20,15 @@ namespace vkb
 		                           char const*                     message)
 		{
 			log::error("libdecor: %s", message);
+		}
+
+		[[maybe_unused]]
+		void wl_error_handle([[maybe_unused]] void*       data,
+		                     [[maybe_unused]] wl_display* wl_display,
+		                     [[maybe_unused]] void*       object_id,
+		                     [[maybe_unused]] uint32_t code, char const* message)
+		{
+			log::error("wayland: %s", message);
 		}
 	}
 
@@ -77,6 +87,21 @@ namespace vkb
 	libdecor* display::get_libdecor()
 	{
 		return libdecor_;
+	}
+
+	void display::lock_pointer(wl_surface* win)
+	{
+		// if (!pointer_lock_)
+		// {
+		// 	pointer_lock_ = zwp_pointer_constraints_v1_confine_pointer(
+		// 		pointer_constraints_, win, pointer_, nullptr, 0);
+		// }
+	}
+
+	void display::unlock_pointer()
+	{
+		// zwp_confined_pointer_v1_destroy(pointer_lock_);
+		// pointer_lock_ = nullptr;
 	}
 
 	void display::add_window(window* win)
@@ -147,6 +172,11 @@ namespace vkb
 		{
 			disp->decoration_mgr = reinterpret_cast<zxdg_decoration_manager_v1*>(
 				wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, 1));
+		}
+		else if (strcmp(interface, zwp_pointer_constraints_v1_interface.name) == 0)
+		{
+			disp->pointer_constraints_ = reinterpret_cast<zwp_pointer_constraints_v1*>(
+				wl_registry_bind(registry, id, &zwp_pointer_constraints_v1_interface, 1));
 		}
 	}
 

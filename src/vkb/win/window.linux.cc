@@ -89,9 +89,15 @@ namespace vkb
 		return {0, 0};
 	}
 
-	void window::lock_mouse() const {}
+	void window::lock_mouse() const
+	{
+		display::get().lock_pointer(reinterpret_cast<wl_surface*>(handle_));
+	}
 
-	void window::unlock_mouse() const {}
+	void window::unlock_mouse() const
+	{
+		display::get().unlock_pointer();
+	}
 
 	void window::show_mouse() const {}
 
