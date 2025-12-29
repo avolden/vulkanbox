@@ -1,6 +1,8 @@
 require('mg/helpers')
 
 function generate_protocol(prj, template, output)
+	-- TODO execute wayland code generator at generation time if the files don't exist.
+	-- Use pre build cmd only in order to update the generated code (wayland update)
 	mg.add_pre_build_cmd(prj, {
 		input = template,
 		output = output .. '.h',
@@ -60,6 +62,10 @@ local protocols = {
 	{
 		input = wayland_protocols_root	 .. 'unstable/pointer-constraints/pointer-constraints-unstable-v1.xml',
 		output = protocols_source_dir .. 'pointer-constraints'
+	},
+	{
+		input = wayland_protocols_root	 .. 'unstable/relative-pointer/relative-pointer-unstable-v1.xml',
+		output = protocols_source_dir .. 'relative-pointer'
 	},
 }
 

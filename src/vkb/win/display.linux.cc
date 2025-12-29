@@ -5,6 +5,7 @@
 
 #include <libdecor.h>
 #include <pointer-constraints.h>
+#include <relative-pointer.h>
 #include <wayland-client.h>
 #include <wayland-xdg-decoration-protocol.h>
 #include <wayland-xdg-shell-client-protocol.h>
@@ -91,17 +92,23 @@ namespace vkb
 
 	void display::lock_pointer(wl_surface* win)
 	{
-		// if (!pointer_lock_)
-		// {
-		// 	pointer_lock_ = zwp_pointer_constraints_v1_confine_pointer(
-		// 		pointer_constraints_, win, pointer_, nullptr, 0);
-		// }
+		if (!pointer_lock_)
+		{
+			struct wl_region* region = wl_compositor_create_region(compositor_);
+			wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+			pointer_lock_ = zwp_pointer_constraints_v1_lock_pointer(
+				pointer_constraints_, win, pointer_, region,
+				ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
+		}
 	}
 
 	void display::unlock_pointer()
 	{
-		// zwp_confined_pointer_v1_destroy(pointer_lock_);
-		// pointer_lock_ = nullptr;
+		if (pointer_lock_)
+		{
+			zwp_locked_pointer_v1_destroy(pointer_lock_);
+			pointer_lock_ = nullptr;
+		}
 	}
 
 	void display::add_window(window* win)
@@ -178,6 +185,12 @@ namespace vkb
 			disp->pointer_constraints_ = reinterpret_cast<zwp_pointer_constraints_v1*>(
 				wl_registry_bind(registry, id, &zwp_pointer_constraints_v1_interface, 1));
 		}
+		else if (strcmp(interface, zwp_relative_pointer_manager_v1_interface.name) == 0)
+		{
+			disp->relative_pointer_mgr_ =
+				reinterpret_cast<zwp_relative_pointer_manager_v1*>(wl_registry_bind(
+					registry, id, &zwp_relative_pointer_manager_v1_interface, 1));
+		}
 	}
 
 	void display::registry_remove(void* ud, wl_registry* registry, uint32_t id)
@@ -222,6 +235,19 @@ namespace vkb
 				nullptr /*pointer_axis_relative_direction*/,
 			};
 			wl_pointer_add_listener(disp->pointer_, &pointer_listener, disp);
+			if (disp->relative_pointer_mgr_)
+			{
+				disp->relative_pointer_ =
+					zwp_relative_pointer_manager_v1_get_relative_pointer(
+						disp->relative_pointer_mgr_, disp->pointer_);
+
+				static zwp_relative_pointer_v1_listener listener {
+					display::pointer_relative_motion,
+				};
+
+				zwp_relative_pointer_v1_add_listener(disp->relative_pointer_, &listener,
+				                                     disp);
+			}
 		}
 		else if (!(capabilities & WL_SEAT_CAPABILITY_POINTER) && disp->pointer_)
 		{
@@ -305,6 +331,18 @@ namespace vkb
 			return;
 
 		disp->pointer_window_->pointer_axis(axis, value);
+	}
+
+	void display::pointer_relative_motion(
+		void* ud, [[maybe_unused]] struct zwp_relative_pointer_v1* pointer,
+		[[maybe_unused]] uint32_t utime_hi, [[maybe_unused]] uint32_t utime_lo,
+		int32_t dx, int32_t dy, int32_t dx_raw, int32_t dy_raw)
+	{
+		display* disp = reinterpret_cast<display*>(ud);
+
+		for (uint32_t i {0}; i < disp->surface_to_win_.size(); ++i)
+			disp->surface_to_win_[i].second->pointer_relative_motion(dx, dy, dx_raw,
+			                                                         dy_raw);
 	}
 
 	void display::keyboard_keymap([[maybe_unused]] void*        ud,

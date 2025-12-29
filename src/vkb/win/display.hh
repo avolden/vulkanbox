@@ -22,7 +22,9 @@ struct wl_surface;
 struct wl_pointer;
 struct wl_keyboard;
 struct zwp_pointer_constraints_v1;
-struct zwp_confined_pointer_v1;
+struct zwp_locked_pointer_v1;
+struct zwp_relative_pointer_manager_v1;
+struct zwp_relative_pointer_v1;
 #endif
 
 namespace vkb
@@ -87,6 +89,11 @@ namespace vkb
 		                           uint32_t time, uint32_t button, uint32_t state);
 		static void pointer_axis(void* ud, wl_pointer* pointer, uint32_t time,
 		                         uint32_t axis, int32_t value);
+		static void pointer_relative_motion(void*                           ud,
+		                                    struct zwp_relative_pointer_v1* pointer,
+		                                    uint32_t utime_hi, uint32_t utime_lo,
+		                                    int32_t dx, int32_t dy, int32_t dx_raw,
+		                                    int32_t dy_raw);
 
 		static void keyboard_keymap(void* ud, wl_keyboard* keyboard, uint32_t format,
 		                            int32_t fd, uint32_t size);
@@ -112,12 +119,16 @@ namespace vkb
 
 		wl_output* output_ {nullptr};
 
-		wl_pointer*                 pointer_ {nullptr};
-		window*                     pointer_window_ {nullptr};
-		wl_keyboard*                keyboard_ {nullptr};
-		window*                     keyboard_window_ {nullptr};
+		wl_pointer*  pointer_ {nullptr};
+		window*      pointer_window_ {nullptr};
+		wl_keyboard* keyboard_ {nullptr};
+		window*      keyboard_window_ {nullptr};
+
 		zwp_pointer_constraints_v1* pointer_constraints_ {nullptr};
-		zwp_confined_pointer_v1*    pointer_lock_ {nullptr};
+		zwp_locked_pointer_v1*      pointer_lock_ {nullptr};
+
+		zwp_relative_pointer_manager_v1* relative_pointer_mgr_ {nullptr};
+		zwp_relative_pointer_v1*         relative_pointer_ {nullptr};
 
 		xdg_wm_base*                wm_base_ {nullptr};
 		zxdg_decoration_manager_v1* decoration_mgr {nullptr};

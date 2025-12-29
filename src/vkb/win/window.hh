@@ -62,6 +62,8 @@ namespace vkb
 		                                   char const* seat_name, void* ud);
 
 		void pointer_motion(int32_t x, int32_t y);
+		void pointer_relative_motion(int32_t dx, int32_t dy, int32_t dx_raw,
+		                             int32_t dy_raw);
 		void pointer_button(uint32_t button, uint32_t state);
 		void pointer_axis(uint32_t axis, int32_t state);
 

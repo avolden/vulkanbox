@@ -176,6 +176,13 @@ namespace vkb
 			is_->pointer_motion(x, y);
 	}
 
+	void window::pointer_relative_motion(int32_t dx, int32_t dy, int32_t dx_raw,
+	                                     int32_t dy_raw)
+	{
+		if (is_)
+			is_->pointer_relative_motion(dx, dy, dx_raw, dy_raw);
+	}
+
 	void window::pointer_button(uint32_t button, uint32_t state)
 	{
 		if (is_)

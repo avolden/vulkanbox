@@ -131,8 +131,17 @@ namespace vkb
 		int32_t int_x = wl_fixed_to_int(x);
 		int32_t int_y = wl_fixed_to_int(y);
 
-		pos_rel_ = {pos_abs_.first - int_x, pos_abs_.second - int_y};
 		pos_abs_ = {int_x, int_y};
+	}
+
+	void input_system::pointer_relative_motion([[maybe_unused]] wl_fixed_t dx,
+	                                           [[maybe_unused]] wl_fixed_t dy,
+	                                           wl_fixed_t dx_raw, wl_fixed_t dy_raw)
+	{
+		int32_t int_x = wl_fixed_to_int(dx_raw);
+		int32_t int_y = wl_fixed_to_int(dy_raw);
+
+		pos_rel_ = {int_x, int_y};
 	}
 
 	void input_system::pointer_button(uint32_t button, uint32_t state)
