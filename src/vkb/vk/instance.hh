@@ -69,6 +69,9 @@ namespace vkb::vk
 		                     VkMemoryPropertyFlags props);
 		void   destroy_buffer(buffer const& buf);
 
+		void copy_buffer(VkCommandBuffer cmd, buffer const& from, buffer const& to,
+		                 uint32_t size);
+
 		VkCommandBuffer begin_commands();
 		void            end_commands(VkCommandBuffer cmd);
 

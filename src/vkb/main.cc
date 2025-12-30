@@ -116,29 +116,6 @@ int main(int argc, char** argv)
 	mat4 coords_proj = mat4::ortho_proj(-50.f, 50.f, 0, w, h, 0);
 	vec2 translate {(75.f * 2 / w), ((h - 75.f) * 2 / h)};
 
-	// vk::object& main_obj = objs.emplace_back();
-	// main_obj.pos = {0, 0, 0, 1.0f};
-	// main_obj.rot_axis =
-	// 	vkb::vec4(static_cast<float>(rand() % 100), static_cast<float>(rand() % 100),
-	//               static_cast<float>(rand() % 100), 1.0f)
-	// 		.norm3();
-	// main_obj.scale = {1.5f, 1.5f, 1.5f, 1.f};
-	// main_obj.rot_speed = 1 / 50.f;
-
-	// main_obj.model = &model;
-	// main_obj.tex = &tex;
-	// ctx.init_object(&main_obj);
-
-	vk::object& cam_view_obj = objs.emplace_back();
-	cam_view_obj.pos = {0, 0, 0, 1.0f};
-	cam_view_obj.rot_axis = vkb::vec4(0, 1.f, 0, 1.0f).norm3();
-	cam_view_obj.scale = {0.2f, 0.2f, 0.2f, 1.f};
-	cam_view_obj.rot_speed = 0.f;
-
-	cam_view_obj.model = &model;
-	cam_view_obj.tex = &tex;
-	ctx.init_object(&cam_view_obj);
-
 	mc::vector<mat4> modules;
 	modules.emplace_back(mat4::scale({.5f, .5f, .5f, 1.f}));
 	modules.emplace_back(mat4::scale({.5f, .5f, .5f, 1.f}) *
@@ -149,22 +126,6 @@ int main(int argc, char** argv)
 	                     mat4::translate({0.f, 2.f, 0.f, 1.f}));
 	modules.emplace_back(mat4::scale({.5f, .5f, .5f, 1.f}) *
 	                     mat4::translate({2.f, 0.f, 0.f, 1.f}));
-
-	// for (uint32_t i {2}; i < objs.capacity(); i++)
-	// {
-	// 	vk::object& obj = objs.emplace_back();
-	// 	obj.pos = {static_cast<float>(rand() % 100), static_cast<float>(rand() % 100),
-	// 	           static_cast<float>(rand() % 100), 1.0f};
-	// 	obj.rot_axis =
-	// 		vkb::vec4(static_cast<float>(rand() % 100), static_cast<float>(rand() %
-	// 100), 	              static_cast<float>(rand() % 100), 1.0f) .norm3();
-	// obj.scale = {.5f, .5f, .5f, 1.f}; 	obj.rot_speed = static_cast<float>(rand()
-	// % 100) / 50.f;
-
-	// 	obj.model = &model;
-	// 	obj.tex = &tex;
-	// 	ctx.init_object(&obj);
-	// }
 
 	while (running)
 	{
@@ -178,7 +139,6 @@ int main(int argc, char** argv)
 		is.clear_transitions();
 		disp.update();
 		cam.update(dt);
-		cam_view_obj.pos = cam.view_pos();
 
 		for (uint32_t i {0}; i < objs.size(); i++)
 			objs[i].update(dt);
@@ -186,7 +146,7 @@ int main(int argc, char** argv)
 		if (!main_window.closed() && !main_window.minimized())
 		{
 			ui_ctx.update(dt);
-			if (!ctx.prepare_draw(cam))
+			if (!ctx.prepare_draw())
 				continue;
 			sky.prepare_draw(ctx.current_command_buffer(), ctx.current_img_idx(), cam,
 			                 ctx.get_proj());
@@ -197,7 +157,6 @@ int main(int argc, char** argv)
 
 			ctx.begin_draw();
 			sky.draw(ctx.current_command_buffer(), ctx.current_img_idx());
-			ctx.draw();
 			mod.draw(ctx.current_command_buffer(), ctx.current_img_idx(), model, modules);
 			coords.draw(ctx.current_command_buffer(), ctx.current_img_idx());
 			ui_ctx.draw();
@@ -221,7 +180,5 @@ int main(int argc, char** argv)
 	ctx.destroy_texture(tex);
 	ctx.destroy_model(model);
 
-	for (uint32_t i {0}; i < objs.size(); i++)
-		ctx.destroy_object(&objs[i]);
 	return 0;
 }

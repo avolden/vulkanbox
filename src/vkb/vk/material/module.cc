@@ -389,8 +389,8 @@ namespace vkb::vk
 	{
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe_);
 		VkDeviceSize offset {0};
-		vkCmdBindVertexBuffers(cmd, 0, 1, &cube.vertex_buffer_, &offset);
-		vkCmdBindIndexBuffer(cmd, cube.index_buffer_, 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindVertexBuffers(cmd, 0, 1, &cube.vertex_.buffer, &offset);
+		vkCmdBindIndexBuffer(cmd, cube.index_.buffer, 0, VK_INDEX_TYPE_UINT16);
 
 		VkDescriptorSet sets[2] {static_set_, dynamic_sets_[img_idx]};
 
@@ -406,7 +406,7 @@ namespace vkb::vk
 		{
 			vkCmdPushConstants(cmd, pipe_layout_, VK_SHADER_STAGE_VERTEX_BIT, 0,
 			                   sizeof(mat4), &models[i]);
-			vkCmdDrawIndexed(cmd, cube.idc_size, 1, 0, 0, 0);
+			vkCmdDrawIndexed(cmd, cube.idcs_size_, 1, 0, 0, 0);
 		}
 	}
 } // namespace vkb::vk

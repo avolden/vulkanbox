@@ -280,6 +280,24 @@ namespace vkb::vk
 		vmaDestroyBuffer(allocator_, buf.buffer, buf.memory);
 	}
 
+	void instance::copy_buffer(VkCommandBuffer cmd, buffer const& from, buffer const& to,
+	                           uint32_t size)
+	{
+		log::assert(from.buffer && to.buffer, "Invalid buffer(s)");
+
+		VkBufferCopy2 region {};
+		region.sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2;
+		region.size = size;
+		VkCopyBufferInfo2 copy {};
+		copy.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2;
+		copy.srcBuffer = from.buffer;
+		copy.dstBuffer = to.buffer;
+		copy.regionCount = 1;
+		copy.pRegions = &region;
+
+		vkCmdCopyBuffer2(cmd, &copy);
+	}
+
 	VkCommandBuffer instance::begin_commands(/*bool transient*/)
 	{
 		VkCommandBuffer cmd {nullptr};

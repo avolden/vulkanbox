@@ -31,32 +31,10 @@ namespace vkb::vk
 	context::context(window const& win, surface& surface)
 	: win_ {win}
 	, surface_ {surface}
-	, mat_ {"res/shaders/default.spv"}
 	{
 		// auto [w, h] = win_.size();
 		auto [w, h] = surface_.get_extent();
 		proj_ = mat4::persp_proj(near_, far_, w / (float)h, rad(fov_deg_));
-
-		created_ = create_desc_set_layout();
-		if (!created_)
-		{
-			log::error("Failed to create descriptor set layout");
-			return;
-		}
-
-		created_ = create_graphics_pipeline();
-		if (!created_)
-		{
-			log::error("Failed to create graphics pipeline");
-			return;
-		}
-
-		created_ = create_uniform_buffers();
-		if (!created_)
-		{
-			log::error("Failed to create uniform buffers");
-			return;
-		}
 
 		create_command_buffers();
 
@@ -64,13 +42,6 @@ namespace vkb::vk
 		if (!created_)
 		{
 			log::error("Failed to create synchronization objects");
-			return;
-		}
-
-		created_ = create_descriptor_pool();
-		if (!created_)
-		{
-			log::error("Failed to create descriptor pool");
 			return;
 		}
 	}
@@ -81,16 +52,6 @@ namespace vkb::vk
 
 		vkDeviceWaitIdle(inst.get_device());
 
-		if (depth_img_view_)
-			vkDestroyImageView(inst.get_device(), depth_img_view_, nullptr);
-		if (depth_img_buf_)
-			vmaFreeMemory(inst.get_allocator(), depth_img_buf_);
-		if (depth_img_)
-			vkDestroyImage(inst.get_device(), depth_img_, nullptr);
-
-		if (desc_pool_)
-			vkDestroyDescriptorPool(inst.get_device(), desc_pool_, nullptr);
-
 		for (uint8_t i {0}; i < context::max_frames_in_flight; ++i)
 		{
 			if (in_flight_fences_[i])
@@ -99,30 +60,10 @@ namespace vkb::vk
 				vkDestroySemaphore(inst.get_device(), draw_end_semaphores_[i], nullptr);
 			if (img_avail_semaphores_[i])
 				vkDestroySemaphore(inst.get_device(), img_avail_semaphores_[i], nullptr);
-
-			if (uniform_buffers_[i])
-			{
-				vmaDestroyBuffer(inst.get_allocator(), uniform_buffers_[i],
-				                 uniform_buffers_memory_[i]);
-			}
-
-			if (staging_uniform_buffers_[i])
-			{
-				vmaDestroyBuffer(inst.get_allocator(), staging_uniform_buffers_[i],
-				                 staging_uniform_buffers_memory_[i]);
-			}
 		}
 
 		for (uint32_t i {0}; i < recycled_semaphores_.size(); ++i)
 			vkDestroySemaphore(inst.get_device(), recycled_semaphores_[i], nullptr);
-
-		if (pipe_layout_)
-			vkDestroyPipelineLayout(inst.get_device(), pipe_layout_, nullptr);
-		if (desc_set_layout_)
-			vkDestroyDescriptorSetLayout(inst.get_device(), desc_set_layout_, nullptr);
-
-		if (render_pass_)
-			vkDestroyRenderPass(inst.get_device(), render_pass_, nullptr);
 	}
 
 	bool context::created() const
@@ -141,63 +82,145 @@ namespace vkb::vk
 		proj_ = mat4::persp_proj(near_, far_, w / (float)h, rad(fov_deg_));
 	}
 
-	bool context::init_model(model& model, mc::array_view<model::vert> verts,
+	void context::init_model(model& model, mc::array_view<model::vert> verts,
 	                         mc::array_view<uint16_t> idcs)
 	{
-		bool init = create_vertex_buffer(model, verts);
-		if (!init)
-		{
-			log::error("Failed to create vertex buffer");
-			return init;
-		}
+		instance& inst = instance::get();
 
-		init = create_index_buffer(model, idcs);
-		if (!init)
-		{
-			log::error("Failed to create index buffer");
-			return init;
-		}
+		uint64_t vert_size {sizeof(model::vert) * verts.size()};
+		uint64_t idcs_size {sizeof(uint16_t) * idcs.size()};
 
-		return init;
+		buffer staging_vert = inst.create_buffer(
+			vert_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		buffer staging_idcs = inst.create_buffer(
+			idcs_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+		void* buff_mem;
+		vmaMapMemory(inst.get_allocator(), staging_vert.memory, &buff_mem);
+		memcpy(buff_mem, verts.data(), vert_size);
+		vmaUnmapMemory(inst.get_allocator(), staging_vert.memory);
+		vmaMapMemory(inst.get_allocator(), staging_idcs.memory, &buff_mem);
+		memcpy(buff_mem, idcs.data(), idcs_size);
+		vmaUnmapMemory(inst.get_allocator(), staging_idcs.memory);
+
+		model.vertex_ = inst.create_buffer(vert_size,
+		                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+		                                       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		model.index_ = inst.create_buffer(idcs_size,
+		                                  VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+		                                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		VkCommandBuffer cmd = inst.begin_commands();
+		inst.copy_buffer(cmd, staging_vert, model.vertex_, vert_size);
+		inst.copy_buffer(cmd, staging_idcs, model.index_, idcs_size);
+		inst.end_commands(cmd);
+
+		inst.destroy_buffer(staging_vert);
+		inst.destroy_buffer(staging_idcs);
+
+		model.idcs_size_ = idcs.size();
 	}
 
 	void context::destroy_model(model& model)
 	{
 		instance& inst = instance::get();
 
-		if (model.index_buffer_)
-			vmaDestroyBuffer(inst.get_allocator(), model.index_buffer_,
-			                 model.index_buffer_memory_);
-
-		if (model.vertex_buffer_)
-			vmaDestroyBuffer(inst.get_allocator(), model.vertex_buffer_,
-			                 model.vertex_buffer_memory_);
+		inst.destroy_buffer(model.index_);
+		inst.destroy_buffer(model.vertex_);
 	}
 
-	bool context::init_texture(texture& tex, mc::string_view path)
+	void context::init_texture(texture& tex, mc::string_view path)
 	{
-		bool init = create_texture_image(tex, path);
-		if (!init)
-		{
-			log::error("Failed to create texture image");
-			return init;
-		}
+		instance& inst = instance::get();
 
-		init = create_texture_image_view(tex);
-		if (!init)
-		{
-			log::error("Failed to create texture image view");
-			return init;
-		}
+		int32_t  w, h, c;
+		uint8_t* pix = stbi_load(path.data(), &w, &h, &c, STBI_rgb_alpha);
+		if (!pix)
+			return;
 
-		init = create_texture_sampler(tex);
-		if (!init)
-		{
-			log::error("Failed to create texture sampler");
-			return init;
-		}
+		tex.mip_lvl = floor(log2(w > h ? w : h));
+		uint64_t size = w * h * 4;
 
-		return init;
+		buffer staging = inst.create_buffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		                                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+		                                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+		void* data;
+		vmaMapMemory(inst.get_allocator(), staging.memory, &data);
+		memcpy(data, pix, size);
+		vmaUnmapMemory(inst.get_allocator(), staging.memory);
+
+		stbi_image_free(pix);
+
+		tex.img = inst.create_image(
+			w, h, tex.mip_lvl, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+				VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		VkCommandBuffer cmd = inst.begin_commands();
+
+		inst.transition_image_layout(
+			cmd, tex.img.image, VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT, tex.mip_lvl);
+
+		VkBufferImageCopy2 copy {};
+		copy.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2;
+		copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copy.imageSubresource.layerCount = 1;
+		copy.imageExtent.width = w;
+		copy.imageExtent.height = h;
+		copy.imageExtent.depth = 1;
+
+		VkCopyBufferToImageInfo2 info {};
+		info.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2;
+		info.srcBuffer = staging.buffer;
+		info.dstImage = tex.img.image;
+		info.regionCount = 1;
+		info.pRegions = &copy;
+		info.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+		vkCmdCopyBufferToImage2(cmd, &info);
+		// inst.end_commands(cmd);
+		// cmd = inst.begin_commands();
+		generate_mips(cmd, tex.img, VK_FORMAT_R8G8B8A8_SRGB, w, h, tex.mip_lvl);
+		inst.end_commands(cmd);
+
+		inst.destroy_buffer(staging);
+
+		tex.img_view = inst.create_image_view(tex.img.image, VK_FORMAT_R8G8B8A8_SRGB,
+		                                      VK_IMAGE_ASPECT_COLOR_BIT, tex.mip_lvl);
+
+		VkSamplerCreateInfo sampler {};
+		sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		sampler.magFilter = VK_FILTER_NEAREST;
+		sampler.minFilter = VK_FILTER_NEAREST;
+		sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		sampler.minLod = 0.f;
+		sampler.maxLod = tex.mip_lvl;
+		sampler.mipLodBias = 0.f;
+
+		VkPhysicalDeviceProperties props {};
+		vkGetPhysicalDeviceProperties(inst.get_physical_device(), &props);
+		sampler.anisotropyEnable = VK_TRUE;
+		sampler.maxAnisotropy = props.limits.maxSamplerAnisotropy;
+
+		sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+		sampler.unnormalizedCoordinates = VK_FALSE;
+		sampler.compareEnable = VK_FALSE;
+		sampler.compareOp = VK_COMPARE_OP_ALWAYS;
+		sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+		vkCreateSampler(inst.get_device(), &sampler, nullptr, &tex.sampler);
 	}
 
 	void context::destroy_texture(texture& tex)
@@ -212,29 +235,7 @@ namespace vkb::vk
 			vmaDestroyImage(inst.get_allocator(), tex.img.image, tex.img.memory);
 	}
 
-	bool context::init_object(object* obj)
-	{
-		bool init = create_descriptor_sets(obj);
-		if (!init)
-		{
-			log::error("Failed to create descriptor sets");
-			return init;
-		}
-
-		if (init)
-			objs_.emplace_back(obj);
-
-		return init;
-	}
-
-	void context::destroy_object(object* obj)
-	{
-		instance& inst = instance::get();
-
-		vkFreeDescriptorSets(inst.get_device(), desc_pool_, 2, obj->desc_sets_);
-	}
-
-	bool context::prepare_draw(cam::base& cam)
+	bool context::prepare_draw()
 	{
 		instance& inst = instance::get();
 
@@ -282,43 +283,6 @@ namespace vkb::vk
 		res = vkBeginCommandBuffer(command_buffers_[img_idx_], &begin_info);
 		if (res != VK_SUCCESS)
 			return false;
-
-		struct
-		{
-			alignas(16) mat4 view;
-			alignas(16) mat4 proj;
-		} ubo;
-
-		ubo.view = cam.view_mat();
-		ubo.proj = proj_;
-
-		void* buff_mem;
-		vmaMapMemory(inst.get_allocator(), staging_uniform_buffers_memory_[img_idx_],
-		             &buff_mem);
-		memcpy(buff_mem, &ubo, sizeof(ubo));
-		vmaUnmapMemory(inst.get_allocator(), staging_uniform_buffers_memory_[img_idx_]);
-
-		VkBufferCopy2 region {};
-		region.sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2;
-		region.size = sizeof(ubo);
-		VkCopyBufferInfo2 copy {};
-		copy.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2;
-		copy.srcBuffer = staging_uniform_buffers_[img_idx_];
-		copy.dstBuffer = uniform_buffers_[img_idx_];
-		copy.regionCount = 1;
-		copy.pRegions = &region;
-
-		vkCmdCopyBuffer2(command_buffers_[img_idx_], &copy);
-
-		VkBufferMemoryBarrier barrier {};
-		barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-		barrier.buffer = uniform_buffers_[img_idx_];
-		barrier.size = sizeof(ubo);
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		vkCmdPipelineBarrier(command_buffers_[img_idx_], VK_PIPELINE_STAGE_TRANSFER_BIT,
-		                     VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0, 0, nullptr, 1,
-		                     &barrier, 0, nullptr);
 
 		inst.transition_image_layout(
 			command_buffers_[img_idx_], surface_.get_images()[img_idx_],
@@ -375,15 +339,6 @@ namespace vkb::vk
 		scissor.offset = {0, 0};
 		scissor.extent = surface_.get_extent();
 		vkCmdSetScissorWithCount(command_buffers_[img_idx_], 1, &scissor);
-	}
-
-	void context::draw()
-	{
-		vkCmdBindPipeline(command_buffers_[img_idx_], VK_PIPELINE_BIND_POINT_GRAPHICS,
-		                  mat_.get_pipeline());
-
-		for (uint32_t i {0}; i < objs_.size(); ++i)
-			record_command_buffer(command_buffers_[img_idx_], objs_[i]);
 	}
 
 	bool context::present()
@@ -452,8 +407,9 @@ namespace vkb::vk
 		init_info.PhysicalDevice = inst.get_physical_device();
 		init_info.Device = inst.get_device();
 		init_info.Queue = inst.get_graphics_queue();
-		init_info.PipelineCache = pipe_cache_;
-		init_info.DescriptorPool = desc_pool_;
+		init_info.PipelineCache = nullptr;
+		init_info.DescriptorPool = nullptr;
+		init_info.DescriptorPoolSize = 1;
 		init_info.PipelineInfoMain.RenderPass = nullptr;
 		init_info.UseDynamicRendering = true;
 
@@ -493,208 +449,19 @@ namespace vkb::vk
 		return proj_;
 	}
 
-	bool context::create_image_view(VkImage& img, VkFormat format,
-	                                VkImageAspectFlags flags, uint32_t mip_lvl,
-	                                VkImageView& img_view)
+	void context::generate_mips(VkCommandBuffer cmd, image const& img, VkFormat format,
+	                            uint32_t w, uint32_t h, uint32_t mip_lvl)
 	{
-		instance&             inst = instance::get();
-		VkImageViewCreateInfo create_info {};
-		create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		create_info.image = img;
-		create_info.format = format;
-		create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		create_info.subresourceRange.aspectMask = flags;
-		create_info.subresourceRange.baseMipLevel = 0;
-		create_info.subresourceRange.levelCount = 1;
-		create_info.subresourceRange.baseArrayLayer = 0;
-		create_info.subresourceRange.layerCount = 1;
-		create_info.subresourceRange.levelCount = mip_lvl;
-
-		VkResult res =
-			vkCreateImageView(inst.get_device(), &create_info, nullptr, &img_view);
-
-		return res == VK_SUCCESS;
-	}
-
-	bool context::create_desc_set_layout()
-	{
-		VkDescriptorSetLayoutBinding ubo_binding {};
-		ubo_binding.binding = 0;
-		ubo_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		ubo_binding.descriptorCount = 1;
-		ubo_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-		VkDescriptorSetLayoutBinding sampler_binding {};
-		sampler_binding.binding = 1;
-		sampler_binding.descriptorCount = 1;
-		sampler_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		sampler_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-		VkDescriptorSetLayoutBinding    bindings[] {ubo_binding, sampler_binding};
-		VkDescriptorSetLayoutCreateInfo create_info {};
-		create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		create_info.bindingCount = 2;
-		create_info.pBindings = bindings;
-
-		VkResult res = vkCreateDescriptorSetLayout(
-			instance::get().get_device(), &create_info, nullptr, &desc_set_layout_);
-		return res == VK_SUCCESS;
-	}
-
-	bool context::create_graphics_pipeline()
-	{
-		return mat_.create_pipeline_state();
-	}
-
-	VkShaderModule context::create_shader(uint8_t* spirv, uint32_t spirv_size)
-	{
-		VkShaderModuleCreateInfo create_info {};
-		create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		create_info.codeSize = spirv_size;
-		create_info.pCode = reinterpret_cast<uint32_t*>(spirv);
-
-		VkShaderModule shader;
-		if (vkCreateShaderModule(instance::get().get_device(), &create_info, nullptr,
-		                         &shader) == VK_SUCCESS)
-			return shader;
-		else
-			return nullptr;
-	}
-
-	bool context::create_texture_image(texture& tex, mc::string_view path)
-	{
-		instance& inst = instance::get();
-
-		int32_t  w, h, c;
-		uint8_t* pix = stbi_load(path.data(), &w, &h, &c, STBI_rgb_alpha);
-		if (!pix)
-			return false;
-
-		tex.mip_lvl = floor(log2(w > h ? w : h));
-		uint64_t size = w * h * 4;
-
-		VkBuffer      staging_buf;
-		VmaAllocation staging_buf_mem;
-		create_buffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
-		                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-		              staging_buf, staging_buf_mem);
-
-		void* data;
-		vmaMapMemory(inst.get_allocator(), staging_buf_mem, &data);
-		memcpy(data, pix, size);
-		vmaUnmapMemory(inst.get_allocator(), staging_buf_mem);
-
-		stbi_image_free(pix);
-
-		tex.img = inst.create_image(
-			w, h, tex.mip_lvl, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-				VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-		VkCommandBuffer cmd = inst.begin_commands();
-
-		inst.transition_image_layout(
-			cmd, tex.img.image, VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_IMAGE_ASPECT_COLOR_BIT, tex.mip_lvl);
-
-		inst.end_commands(cmd);
-		copy_buffer_to_image(staging_buf, tex.img.image, w, h);
-		generate_mips(tex.img.image, VK_FORMAT_R8G8B8A8_SRGB, w, h, tex.mip_lvl);
-
-		vmaDestroyBuffer(inst.get_allocator(), staging_buf, staging_buf_mem);
-
-		return true;
-	}
-
-	bool context::create_texture_image_view(texture& tex)
-	{
-		return create_image_view(tex.img.image, VK_FORMAT_R8G8B8A8_SRGB,
-		                         VK_IMAGE_ASPECT_COLOR_BIT, tex.mip_lvl, tex.img_view);
-	}
-
-	bool context::create_texture_sampler(texture& tex)
-	{
-		instance& inst = instance::get();
-
-		VkSamplerCreateInfo sampler {};
-		sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		sampler.magFilter = VK_FILTER_NEAREST;
-		sampler.minFilter = VK_FILTER_NEAREST;
-		sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		sampler.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		sampler.minLod = 0.f;
-		sampler.maxLod = tex.mip_lvl;
-		sampler.mipLodBias = 0.f;
-
-		VkPhysicalDeviceProperties props {};
-		vkGetPhysicalDeviceProperties(inst.get_physical_device(), &props);
-		sampler.anisotropyEnable = VK_TRUE;
-		sampler.maxAnisotropy = props.limits.maxSamplerAnisotropy;
-
-		sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-		sampler.unnormalizedCoordinates = VK_FALSE;
-		sampler.compareEnable = VK_FALSE;
-		sampler.compareOp = VK_COMPARE_OP_ALWAYS;
-		sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-
-		VkResult res =
-			vkCreateSampler(inst.get_device(), &sampler, nullptr, &tex.sampler);
-		return res == VK_SUCCESS;
-	}
-
-	void context::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t w,
-	                                   uint32_t h)
-	{
-		instance&       inst = instance::get();
-		VkCommandBuffer cmd = inst.begin_commands();
-
-		VkBufferImageCopy2 copy {};
-		copy.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2;
-		copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		copy.imageSubresource.layerCount = 1;
-		copy.imageExtent.width = w;
-		copy.imageExtent.height = h;
-		copy.imageExtent.depth = 1;
-
-		VkCopyBufferToImageInfo2 info {};
-		info.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2;
-		info.srcBuffer = buffer;
-		info.dstImage = image;
-		info.regionCount = 1;
-		info.pRegions = &copy;
-		info.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-
-		vkCmdCopyBufferToImage2(cmd, &info);
-
-		inst.end_commands(cmd);
-	}
-
-	void context::generate_mips(VkImage img, VkFormat format, uint32_t w, uint32_t h,
-	                            uint32_t mip_lvl)
-	{
-		instance& inst = instance::get();
-
 		VkFormatProperties props;
 		vkGetPhysicalDeviceFormatProperties(instance::get().get_physical_device(), format,
 		                                    &props);
 		if (!(props.optimalTilingFeatures &
 		      VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
 			return;
-		VkCommandBuffer cmd = inst.begin_commands();
 
 		VkImageMemoryBarrier barrier {};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.image = img;
+		barrier.image = img.image;
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -732,8 +499,8 @@ namespace vkb::vk
 			blit.dstSubresource.baseArrayLayer = 0;
 			blit.dstSubresource.layerCount = 1;
 
-			vkCmdBlitImage(cmd, img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, img,
-			               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit,
+			vkCmdBlitImage(cmd, img.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			               img.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit,
 			               VK_FILTER_LINEAR);
 
 			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -760,142 +527,6 @@ namespace vkb::vk
 		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
 		                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
 		                     nullptr, 1, &barrier);
-
-		inst.end_commands(cmd);
-	}
-
-	bool context::create_vertex_buffer(model& model, mc::array_view<model::vert> verts)
-	{
-		instance& inst = instance::get();
-
-		uint64_t buf_size {sizeof(model::vert) * verts.size()};
-
-		VkBuffer      staging_buf {nullptr};
-		VmaAllocation staging_buf_memory {nullptr};
-
-		bool res = create_buffer(buf_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		                         staging_buf, staging_buf_memory);
-		if (!res)
-			return false;
-
-		void* buff_mem;
-		vmaMapMemory(inst.get_allocator(), staging_buf_memory, &buff_mem);
-		memcpy(buff_mem, verts.data(), buf_size);
-		vmaUnmapMemory(inst.get_allocator(), staging_buf_memory);
-
-		res = create_buffer(buf_size,
-		                    VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-		                        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, model.vertex_buffer_,
-		                    model.vertex_buffer_memory_);
-
-		copy_buffer(staging_buf, model.vertex_buffer_, buf_size);
-		vmaDestroyBuffer(inst.get_allocator(), staging_buf, staging_buf_memory);
-
-		return res;
-	}
-
-	bool context::create_index_buffer(model& model, mc::array_view<uint16_t> idcs)
-	{
-		instance& inst = instance::get();
-
-		uint64_t buf_size {sizeof(uint16_t) * idcs.size()};
-
-		VkBuffer      staging_buf {nullptr};
-		VmaAllocation staging_buf_memory {nullptr};
-
-		bool res = create_buffer(buf_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		                         staging_buf, staging_buf_memory);
-		if (!res)
-			return false;
-
-		void* buff_mem;
-		vmaMapMemory(inst.get_allocator(), staging_buf_memory, &buff_mem);
-		memcpy(buff_mem, idcs.data(), buf_size);
-		vmaUnmapMemory(inst.get_allocator(), staging_buf_memory);
-
-		res = create_buffer(
-			buf_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, model.index_buffer_,
-			model.index_buffer_memory_);
-
-		copy_buffer(staging_buf, model.index_buffer_, buf_size);
-
-		vmaDestroyBuffer(inst.get_allocator(), staging_buf, staging_buf_memory);
-
-		model.idc_size = idcs.size();
-
-		return res;
-	}
-
-	bool context::create_uniform_buffers()
-	{
-		uint64_t buf_size = 2 * sizeof(mat4);
-
-		for (uint32_t i {0}; i < context::max_frames_in_flight; ++i)
-		{
-			create_buffer(buf_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-			                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			              staging_uniform_buffers_[i],
-			              staging_uniform_buffers_memory_[i]);
-			create_buffer(buf_size,
-			              VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-			                  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, uniform_buffers_[i],
-			              uniform_buffers_memory_[i]);
-		}
-
-		return true;
-	}
-
-	bool context::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
-	                            [[maybe_unused]] VkMemoryPropertyFlags props,
-	                            VkBuffer& buf, VmaAllocation& buf_mem)
-	{
-		instance& inst = instance::get();
-
-		VkBufferCreateInfo create_info {};
-		create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		create_info.size = size;
-		create_info.usage = usage;
-		create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-		VmaAllocationCreateInfo                 alloc_info {};
-		VkPhysicalDeviceMemoryProperties const* mem_props;
-		vmaGetMemoryProperties(inst.get_allocator(), &mem_props);
-		for (uint32_t i {0}; i < mem_props->memoryTypeCount; ++i)
-			if ((mem_props->memoryTypes[i].propertyFlags & props) == props)
-				alloc_info.memoryTypeBits = 1 << i;
-		VkResult res =
-			vmaCreateBuffer(reinterpret_cast<VmaAllocator>(inst.get_allocator()),
-		                    &create_info, &alloc_info, &buf, &buf_mem, nullptr);
-
-		return res == VK_SUCCESS;
-	}
-
-	void context::copy_buffer(VkBuffer src, VkBuffer dst, uint64_t size)
-	{
-		instance&       inst = instance::get();
-		VkCommandBuffer cmd = inst.begin_commands();
-
-		VkBufferCopy2 region {};
-		region.sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2;
-		region.size = size;
-		VkCopyBufferInfo2 copy {};
-		copy.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2;
-		copy.srcBuffer = src;
-		copy.dstBuffer = dst;
-		copy.regionCount = 1;
-		copy.pRegions = &region;
-
-		vkCmdCopyBuffer2(cmd, &copy);
-
-		inst.end_commands(cmd);
 	}
 
 	void context::create_command_buffers()
@@ -931,105 +562,6 @@ namespace vkb::vk
 				return false;
 		}
 		return true;
-	}
-
-	bool context::create_descriptor_pool()
-	{
-		// TODO nvidia not coherent with spec. This will surely cause issues
-		VkDescriptorPoolSize pool_sizes[] = {
-			{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          10001},
-			{VK_DESCRIPTOR_TYPE_SAMPLER,                10001},
-			{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         10001},
-			{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1    }
-        };
-		VkDescriptorPoolCreateInfo pool_info {};
-		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		pool_info.maxSets = context::max_frames_in_flight * 10001;
-		pool_info.pPoolSizes = pool_sizes;
-		pool_info.poolSizeCount = 4;
-		VkResult res = vkCreateDescriptorPool(instance::get().get_device(), &pool_info,
-		                                      nullptr, &desc_pool_);
-
-		return res == VK_SUCCESS;
-	}
-
-	bool context::create_descriptor_sets(object* obj)
-	{
-		instance& inst = instance::get();
-
-		VkDescriptorSetLayout layouts[context::max_frames_in_flight] {
-			mat_.get_descriptor_set_layout(), mat_.get_descriptor_set_layout(),
-			mat_.get_descriptor_set_layout()};
-		VkDescriptorSetAllocateInfo alloc_info {};
-		alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		alloc_info.descriptorPool = desc_pool_;
-		alloc_info.descriptorSetCount = context::max_frames_in_flight;
-		alloc_info.pSetLayouts = layouts;
-
-		VkResult res =
-			vkAllocateDescriptorSets(inst.get_device(), &alloc_info, obj->desc_sets_);
-		if (res != VK_SUCCESS)
-			return false;
-
-		for (uint32_t i {0}; i < context::max_frames_in_flight; ++i)
-		{
-			VkDescriptorBufferInfo buf_info {};
-			buf_info.buffer = uniform_buffers_[i];
-			buf_info.offset = 0;
-			buf_info.range = 2 * sizeof(mat4);
-
-			VkDescriptorImageInfo img_info {};
-			img_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			img_info.imageView = obj->tex->img_view;
-			img_info.sampler = obj->tex->sampler;
-
-			VkWriteDescriptorSet write[3];
-			memset(write, 0, 3 * sizeof(VkWriteDescriptorSet));
-			write[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			write[0].dstSet = obj->desc_sets_[i];
-			write[0].dstBinding = 0;
-			write[0].dstArrayElement = 0;
-			write[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			write[0].descriptorCount = 1;
-			write[0].pBufferInfo = &buf_info;
-
-			write[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			write[1].dstSet = obj->desc_sets_[i];
-			write[1].dstBinding = 1;
-			write[1].dstArrayElement = 0;
-			write[1].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-			write[1].descriptorCount = 1;
-			write[1].pImageInfo = &img_info;
-
-			write[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			write[2].dstSet = obj->desc_sets_[i];
-			write[2].dstBinding = 2;
-			write[2].dstArrayElement = 0;
-			write[2].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-			write[2].descriptorCount = 1;
-			write[2].pImageInfo = &img_info;
-
-			vkUpdateDescriptorSets(inst.get_device(), 3, write, 0, nullptr);
-		}
-
-		return true;
-	}
-
-	void context::record_command_buffer(VkCommandBuffer cmd, object* obj)
-	{
-		vkCmdPushConstants(cmd, mat_.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
-		                   sizeof(mat4), &obj->trs);
-
-		VkBuffer     buffs[] {obj->model->vertex_buffer_};
-		VkDeviceSize offsets[] {0};
-		vkCmdBindVertexBuffers(cmd, 0, 1, buffs, offsets);
-		vkCmdBindIndexBuffer(cmd, obj->model->index_buffer_, 0, VK_INDEX_TYPE_UINT16);
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		                        mat_.get_pipeline_layout(), 0, 1,
-		                        &obj->desc_sets_[img_idx_], 0, nullptr);
-
-		vkCmdDrawIndexed(cmd, obj->model->idc_size, 1, 0, 0, 0);
 	}
 
 	void context::recreate_swapchain()

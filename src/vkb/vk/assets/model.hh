@@ -6,6 +6,7 @@
 #include "../vma/vma.hh"
 #include <volk/volk.h>
 
+#include "../buffer.hh"
 #include <array.hh>
 
 namespace vkb::vk
@@ -22,11 +23,9 @@ namespace vkb::vk
 		static VkVertexInputBindingDescription                 binding_desc();
 		static mc::array<VkVertexInputAttributeDescription, 3> attribute_descs();
 
-		VkBuffer      vertex_buffer_ {nullptr};
-		VmaAllocation vertex_buffer_memory_ {nullptr};
-		VkBuffer      index_buffer_ {nullptr};
-		VmaAllocation index_buffer_memory_ {nullptr};
+		buffer vertex_;
+		buffer index_;
 
-		uint32_t idc_size {0};
+		uint32_t idcs_size_ {0};
 	};
 }
