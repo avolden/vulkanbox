@@ -1,13 +1,21 @@
 #pragma once
 
 #include <vector.hh>
+
 #ifdef VKB_WINDOWS
-#define VK_USE_PLATFORM_WIN32_KHR
-#include <win32/misc.h>
-#elif defined(VKB_LINUX)
-#define VK_USE_PLATFORM_WAYLAND_KHR
-#endif
+#include "win32/misc.h"
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
+
+#include "vulkan/vulkan_win32.h"
 #include <volk/volk.h>
+#elif defined(VKB_LINUX)
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
+
+#include "vulkan/vulkan_wayland.h"
+#include <volk/volk.h>
+#endif
 
 #include "../win/window.hh"
 

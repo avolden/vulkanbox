@@ -409,7 +409,7 @@ namespace vkb::vk
 		init_info.Queue = inst.get_graphics_queue();
 		init_info.PipelineCache = nullptr;
 		init_info.DescriptorPool = nullptr;
-		init_info.DescriptorPoolSize = 1;
+		init_info.DescriptorPoolSize = 8;
 		init_info.PipelineInfoMain.RenderPass = nullptr;
 		init_info.UseDynamicRendering = true;
 

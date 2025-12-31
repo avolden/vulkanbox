@@ -21,6 +21,7 @@ if net.download(imgui_url, imgui_dest_dir) then
 	os.copy_file('config/imgui/imconfig.h', imgui_dest_dir .. 'imconfig.h')
 else
 	io.write('imgui: up-to-date\n')
+	os.copy_file('config/imgui/imconfig.h', imgui_dest_dir .. 'imconfig.h')
 end
 
 require('deps/vulkan')
@@ -33,7 +34,7 @@ if (mg.platform() == 'windows') then
 			imgui_dest_dir .. '*.cpp',
 			imgui_dest_dir .. 'backends/imgui_impl_vulkan.cpp',
 			imgui_dest_dir .. 'backends/imgui_impl_win32.cpp'},
-		includes = merge(imgui_dest_dir, imgui_dest_dir .. 'backends/', vulkan.includes),
+		includes = merge(imgui_dest_dir, imgui_dest_dir .. 'backends/', vulkan.includes, mg.get_build_dir() .. 'deps/'),
 		compile_options = {'-g'}
 	})
 

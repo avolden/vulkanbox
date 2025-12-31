@@ -1,5 +1,20 @@
 #include "context.hh"
 
+#ifdef VKB_WINDOWS
+#include "win32/misc.h"
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
+
+#include "vulkan/vulkan_win32.h"
+#include <volk/volk.h>
+#elif defined(VKB_LINUX)
+#define VK_NO_PROTOTYPES
+#include <vulkan/vulkan.h>
+
+#include "vulkan/vulkan_wayland.h"
+#include <volk/volk.h>
+#endif
+
 #include "../cam/free.hh"
 #include "../input/input_system.hh"
 #include "../vk/context.hh"
@@ -11,11 +26,6 @@
 #include <imgui/backends/imgui_impl_vulkan.h>
 #include <imgui/backends/imgui_impl_win32.h>
 #include <imgui/imgui.h>
-
-#ifdef VKB_WINDOWS
-#include "vulkan/vulkan_win32.h"
-#include "win32/misc.h"
-#endif
 
 // TODO ImGui currently doesn't have any "platform level" backend for linux (gtk,kde)
 // A custom backend will be needed, and will eventually replace the win32 backend as well.
