@@ -4,3 +4,5 @@ mingen.exe
 !mingen/
 
 .cache/
+
+.DS_Store
