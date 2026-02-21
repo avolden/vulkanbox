@@ -8,7 +8,6 @@
 
 namespace vkb
 {
-
 	display::display()
 	{
 		instance_ = this;

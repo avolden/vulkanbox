@@ -135,6 +135,8 @@ namespace vkb
 		libdecor*                   libdecor_ {nullptr};
 
 		mc::vector<mc::pair<wl_surface*, window*>> surface_to_win_;
+#elif defined(VKB_MAC)
+		mc::vector<window*> windows_;
 #endif
 	};
 }

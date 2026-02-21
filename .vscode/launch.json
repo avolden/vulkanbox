@@ -47,6 +47,14 @@
 			"preLaunchTask": "build"
 		},
 		{
+			"name": "vulkanbox mac",
+			"type": "lldb-dap",
+			"request": "launch",
+			"program": "${workspaceFolder}/build/bin/vulkanbox",
+			"cwd": "${workspaceFolder}/build/bin/",
+			"preLaunchTask": "build"
+		}
+		{
 			"name": "attach",
 			"type": "cppvsdbg",
 			"request": "attach",

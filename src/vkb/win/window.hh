@@ -17,6 +17,18 @@ namespace vkb
 #ifdef VKB_LINUX
 struct libdecor_frame;
 struct libdecor_configuration;
+#elif defined(VKB_MAC)
+#ifdef __OBJC__
+@class NSView;
+@class NSWindow;
+@class win_delegate;
+class win_delegate_bridge;
+#else
+class NSView;
+class NSWindow;
+class win_delegate;
+class win_delegate_bridge;
+#endif
 #endif
 
 namespace vkb
@@ -24,6 +36,7 @@ namespace vkb
 	class window
 	{
 		friend display;
+		friend win_delegate_bridge;
 
 	public:
 		window(mc::string_view name, input_system* is = nullptr);
@@ -39,6 +52,7 @@ namespace vkb
 		void* native_handle() const;
 
 		mc::pair<uint32_t, uint32_t> size() const;
+		mc::pair<uint32_t, uint32_t> physical_size() const;
 		mc::pair<int32_t, int32_t>   position() const;
 
 		void lock_mouse() const;
@@ -74,12 +88,19 @@ namespace vkb
 
 		uint32_t w_ {0};
 		uint32_t h_ {0};
+#elif defined(VKB_MAC)
+		NSWindow*     win_ {nullptr};
+		NSView*       view_ {nullptr};
+		win_delegate* delegate_ {nullptr};
 #endif
 
 		void*         handle_;
 		input_system* is_;
 
-		bool closed_ {false};
-		bool min_ {false};
+		mc::pair<uint32_t, uint32_t> size_ {0, 0};
+		mc::pair<uint32_t, uint32_t> phys_size_ {0, 0};
+		mc::pair<int32_t, int32_t>   pos_ {0, 0};
+		bool                         closed_ {false};
+		bool                         min_ {false};
 	};
 }

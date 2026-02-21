@@ -17,14 +17,14 @@
 
 #include "../cam/free.hh"
 #include "../input/input_system.hh"
-#include "../vk/context.hh"
+// #include "../vk/context.hh"
 #include "../win/window.hh"
 
 #include "../math/quat.hh"
 #include "../math/trig.hh"
 
-#include <imgui/backends/imgui_impl_vulkan.h>
-#include <imgui/backends/imgui_impl_win32.h>
+// #include <imgui/backends/imgui_impl_vulkan.h>
+// #include <imgui/backends/imgui_impl_win32.h>
 #include <imgui/imgui.h>
 
 // TODO ImGui currently doesn't have any "platform level" backend for linux (gtk,kde)

@@ -12,5 +12,7 @@
 	},
 	"cSpell.words": [
 		"libdecor"
-	]
+	],
+	"clangd.path": "/opt/homebrew/opt/llvm/bin/clangd",
+	"lldb-dap.displayExtendedBacktrace": false
 }

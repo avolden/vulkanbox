@@ -4,6 +4,11 @@
 			"name": "Default",
 			"intelliSenseMode": "windows-clang-x64",
 			"compileCommands": "build/compile_commands.json"
+		},
+		{
+			"name": "default-mac",
+			"intelliSenseMode": "macos-clang-arm64",
+			"compileCommands": "build/compile_commands.json"
 		}
 	],
 	"version": 4

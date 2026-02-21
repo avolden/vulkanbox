@@ -10,6 +10,9 @@
 			"problemMatcher": [],
 			"linux": {
 				"command": "./mingen -c ${input:generate_config} --compile-db"
+			},
+			"osx": {
+				"command": "./mingen -c ${input:generate_config} --compile-db"
 			}
 		},
 		{
@@ -26,8 +29,24 @@
 			},
 			"group": "build",
 			"problemMatcher": [
-				"$gcc",
-				"$msCompile"
+				{
+					"owner": "gcc",
+					"fileLocation": [
+						"autoDetect",
+						"${workspaceFolder}"
+					],
+					"source": "gcc",
+					"pattern": [
+						{
+							"regexp": "^(.*?):(\\d+):(\\d*):?\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+							"file": 1,
+							"line": 2,
+							"column": 3,
+							"severity": 4,
+							"message": 5
+						}
+					]
+				}
 			]
 		},
 		{

@@ -33,11 +33,12 @@ end
 -- remove platform specific sources in prj that aren't from the current platform
 function remove_platform_sources(prj)
 	-- Manage list of source patterns that are platform specific
-	local excluded_sources = {'.windows.cc', '.linux.cc'}
-	local platform_specific_sources = '.' .. mg.platform() .. '.cc'
+	local excluded_sources = {'.windows.', '.linux.', '.mac.'}
+	local platform_specific_sources = '.' .. mg.platform() .. '.'
 	for i=1,#excluded_sources do
-		if excluded_sources[i] == platform_specific_sources then
+		if string.find(excluded_sources[i], platform_specific_sources) ~= nil then
 			table.remove(excluded_sources, i)
+			i = i - 1
 			break
 		end
 	end

@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#ifdef VKB_LINUX
+#if defined(VKB_LINUX) || defined(VKB_MAC)
 #include <time.h>
 #endif
 
@@ -12,7 +12,7 @@ namespace vkb
 	{
 #ifdef VKB_WINDOWS
 		using stamp = int64_t;
-#elif defined(VKB_LINUX)
+#elif defined(VKB_LINUX) || defined(VKB_MAC)
 		using stamp = timespec;
 #endif
 

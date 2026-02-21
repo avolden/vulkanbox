@@ -24,9 +24,8 @@ else
 	os.copy_file('config/imgui/imconfig.h', imgui_dest_dir .. 'imconfig.h')
 end
 
-require('deps/vulkan')
-
 if (mg.platform() == 'windows') then
+	local vulkan = require('deps/vulkan')
 	local imgui = mg.project({
 		name = "imgui",
 		type = mg.project_type.sources,
@@ -40,6 +39,7 @@ if (mg.platform() == 'windows') then
 
 	return {project = imgui, includes = {'deps/' .. imgui_dest_dir, 'deps/' .. imgui_dest_dir .. 'backends/'}}
 elseif (mg.platform() == 'linux') then
+	local vulkan = require('deps/vulkan')
 	local imgui = mg.project({
 		name = "imgui",
 		type = mg.project_type.sources,
@@ -47,6 +47,17 @@ elseif (mg.platform() == 'linux') then
 			imgui_dest_dir .. '*.cpp',
 			imgui_dest_dir .. 'backends/imgui_impl_vulkan.cpp'},
 		includes = merge(imgui_dest_dir, imgui_dest_dir .. 'backends/', vulkan.includes),
+		compile_options = {'-g'}
+	})
+
+	return {project = imgui, includes = {'deps/' .. imgui_dest_dir, 'deps/' .. imgui_dest_dir .. 'backends/'}}
+elseif (mg.platform() == 'mac') then
+	local imgui = mg.project({
+		name = "imgui",
+		type = mg.project_type.sources,
+		sources = {
+			imgui_dest_dir .. '*.cpp'},
+		includes = merge(imgui_dest_dir, imgui_dest_dir .. 'backends/'),
 		compile_options = {'-g'}
 	})
 

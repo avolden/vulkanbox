@@ -1,0 +1,16 @@
+CompileFlags:
+  CompilationDatabase: build
+
+InlayHints:
+  Enabled: false
+
+Diagnostics:
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
+
+Completion:
+  # Cannot use HeaderInsertion due to -nostdinc++ compilation arguments
+  HeaderInsertion: Never
+
+Documentation:
+  CommentFormat: Doxygen

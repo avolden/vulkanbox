@@ -2,3 +2,5 @@ build/
 mingen
 mingen.exe
 !mingen/
+
+.cache/
