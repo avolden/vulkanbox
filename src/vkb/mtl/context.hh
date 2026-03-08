@@ -6,6 +6,7 @@ namespace MTL
 {
 	class CommandBuffer;
 	class RenderCommandEncoder;
+	class Texture;
 }
 
 namespace CA
@@ -55,10 +56,15 @@ namespace vkb::mtl
 		mat4 get_proj();
 
 	private:
+		void     create_depth_texture();
 		surface& surface_;
+
+		MTL::Texture* depth_tex_ {nullptr};
 
 		CA::MetalDrawable*         current_drawable_ {nullptr};
 		MTL::CommandBuffer*        current_command_buffer_ {nullptr};
 		MTL::RenderCommandEncoder* encoder_ {nullptr};
+
+		mat4 proj_;
 	};
 }

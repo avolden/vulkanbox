@@ -29,7 +29,7 @@ namespace vkb
 				case KEY_PRINT: return key::prnt_scrn;
 				case KEY_SCROLLLOCK: return key::scrl_lck;
 				case KEY_PAUSE: return key::pause_brk;
-				case KEY_GRAVE: return key::backquote;
+				case KEY_GRAVE: return key::grave;
 				case KEY_1: return key::one;
 				case KEY_2: return key::two;
 				case KEY_3: return key::three;

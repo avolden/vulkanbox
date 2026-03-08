@@ -33,7 +33,7 @@ namespace vkb
 				case 0xE037: return key::prnt_scrn;
 				case 0x0046: return key::scrl_lck;
 				case 0x0045: return key::pause_brk;
-				case 0x0029: return key::backquote;
+				case 0x0029: return key::grave;
 				case 0x0002: return key::one;
 				case 0x0003: return key::two;
 				case 0x0004: return key::three;

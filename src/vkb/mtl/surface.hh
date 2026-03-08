@@ -1,4 +1,6 @@
 #pragma once
+#include <pair.hh>
+#include <stdint.h>
 
 namespace CA
 {
@@ -19,7 +21,8 @@ namespace vkb::mtl
 		surface(window const& win);
 		~surface();
 
-		CA::MetalDrawable* get_drawable();
+		mc::pair<uint32_t, uint32_t> get_size();
+		CA::MetalDrawable*           get_drawable();
 
 		bool need_resize();
 		void resize();

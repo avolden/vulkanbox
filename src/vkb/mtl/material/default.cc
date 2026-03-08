@@ -1,12 +1,15 @@
 #include "default.hh"
 
+#include "../../math/mat4.hh"
 #include "../../math/vec4.hh"
 
 #include "../instance.hh"
 #include <Foundation/NSError.hpp>
 #include <Foundation/NSString.hpp>
+#include <Metal/MTLBuffer.hpp>
 #include <Metal/MTLDevice.hpp>
 #include <Metal/MTLLibrary.hpp>
+#include <Metal/MTLPixelFormat.hpp>
 #include <Metal/MTLRenderCommandEncoder.hpp>
 #include <Metal/MTLRenderPipeline.hpp>
 #include <Metal/MTLResource.hpp>
@@ -15,16 +18,19 @@ namespace vkb::mtl
 {
 	triangle::triangle()
 	{
-		vec4 tri[3] {
-			{-0.5f, -0.5f, 0.0f, 1.0f},
-			{0.5f,  -0.5f, 0.0f, 1.0f},
-			{0.0f,  0.5f,  0.0f, 1.0f}
+		vec4 tri[6] {
+			{-3.f, -1.f, -3.0f, 1.0f},
+            {1.f,  0.f,  0.0f,  1.0f},
+            {3.f,  -1.f, -3.0f, 1.0f},
+			{0.f,  1.f,  0.0f,  1.0f},
+            {3.0f, -1.f, 3.0f,  1.0f},
+            {0.f,  0.f,  1.0f,  1.0f}
         };
 
 		instance& inst = instance::get();
 
-		buf_ = inst.get_device()->newBuffer(tri, sizeof(tri),
-		                                    MTL::ResourceStorageModeShared);
+		model_ = inst.get_device()->newBuffer(tri, sizeof(tri),
+		                                      MTL::ResourceStorageModeShared);
 
 		lib_ = inst.get_device()->newLibrary(
 			NS::String::string("res/shaders/metal/default.metallib",
@@ -43,19 +49,44 @@ namespace vkb::mtl
 		desc->setFragmentFunction(fragment);
 		// TODO either hardcode or retrieve from current surface drawn onto
 		desc->colorAttachments()->object(0)->setPixelFormat(MTL::PixelFormatBGRA8Unorm);
+		desc->setDepthAttachmentPixelFormat(MTL::PixelFormatDepth32Float);
 
 		NS::Error* err;
 		pso_ = inst.get_device()->newRenderPipelineState(desc, &err);
 
 		desc->release();
+		vertex->release();
+		fragment->release();
+
+		for (uint32_t i {0}; i < 2; ++i)
+			vp_[i] = inst.get_device()->newBuffer(sizeof(mat4) * 2,
+			                                      MTL::ResourceStorageModeShared);
 	}
 
 	triangle::~triangle() {}
 
-	void triangle::draw(MTL::RenderCommandEncoder* cmd)
+	void triangle::prepare_draw(uint32_t cur_img, mat4 const& view, mat4 const& proj)
+	{
+		MTL::Buffer* buf = vp_[cur_img];
+
+		struct vp_struct
+		{
+			mat4 view;
+			mat4 proj;
+		} vp;
+
+		vp.view = view;
+		vp.proj = proj;
+
+		memcpy(buf->contents(), &vp, sizeof(vp));
+	}
+
+	void triangle::draw(uint32_t cur_img, MTL::RenderCommandEncoder* cmd)
 	{
 		cmd->setRenderPipelineState(pso_);
-		cmd->setVertexBuffer(buf_, 0, 0);
-		cmd->drawPrimitives(MTL::PrimitiveTypeTriangle, NS::Integer(0), 3);
+		cmd->setVertexBuffer(model_, 0, 0);
+		cmd->setVertexBuffer(vp_[cur_img], 0, 1);
+		cmd->setCullMode(MTL::CullModeNone);
+		cmd->drawPrimitives(MTL::PrimitiveTypeTriangle, NS::Integer(0), 6);
 	}
 }

@@ -8,6 +8,45 @@
 #include <Cocoa/Cocoa.h>
 #include <Foundation/Foundation.h>
 
+class custom_view_bridge
+{
+public:
+	static void key_down(vkb::window* win, NSEvent* event)
+	{
+		win->is_->key_down(event);
+	}
+
+	static void key_up(vkb::window* win, NSEvent* event)
+	{
+		win->is_->key_up(event);
+	}
+
+	static void mouse_down(vkb::window* win, NSEvent* event)
+	{
+		win->is_->mouse_down(event);
+	}
+
+	static void mouse_up(vkb::window* win, NSEvent* event)
+	{
+		win->is_->mouse_up(event);
+	}
+
+	static void mouse_move(vkb::window* win, NSEvent* event)
+	{
+		win->is_->mouse_move(event);
+	}
+
+	static void mouse_scroll(vkb::window* win, NSEvent* event)
+	{
+		win->is_->mouse_scroll(event);
+	}
+
+	static void flags_changed(vkb::window* win, NSEvent* event)
+	{
+		win->is_->flags_changed(event);
+	}
+};
+
 @interface custom_view : NSView
 {
 	vkb::window* window;
@@ -22,7 +61,17 @@
 {
 	self = [super initWithFrame:frameRect];
 	if (self)
+	{
 		window = native_win;
+		// Enable mouse moved events
+		NSTrackingAreaOptions options =
+			NSTrackingActiveInKeyWindow | NSTrackingMouseMoved | NSTrackingInVisibleRect;
+		NSTrackingArea* area = [[NSTrackingArea alloc] initWithRect:frameRect
+															options:options
+															  owner:self
+														   userInfo:nil];
+		[self addTrackingArea:area];
+	}
 	return self;
 }
 
@@ -33,7 +82,75 @@
 	[super drawRect:dirtyRect];
 }
 
-// TODO input events
+- (void)keyDown:(NSEvent*)event
+{
+	custom_view_bridge::key_down(window, event);
+}
+
+- (void)keyUp:(NSEvent*)event
+{
+	custom_view_bridge::key_up(window, event);
+}
+
+- (void)mouseDown:(NSEvent*)event
+{
+	custom_view_bridge::mouse_down(window, event);
+}
+
+- (void)mouseUp:(NSEvent*)event
+{
+	custom_view_bridge::mouse_up(window, event);
+}
+
+- (void)mouseMoved:(NSEvent*)event
+{
+	custom_view_bridge::mouse_move(window, event);
+}
+
+- (void)mouseDragged:(NSEvent*)event
+{
+	custom_view_bridge::mouse_move(window, event);
+}
+
+- (void)rightMouseDown:(NSEvent*)event
+{
+	custom_view_bridge::mouse_down(window, event);
+}
+
+- (void)rightMouseUp:(NSEvent*)event
+{
+	custom_view_bridge::mouse_up(window, event);
+}
+
+- (void)rightMouseDragged:(NSEvent*)event
+{
+	custom_view_bridge::mouse_move(window, event);
+}
+
+- (void)otherMouseDown:(NSEvent*)event
+{
+	custom_view_bridge::mouse_down(window, event);
+}
+
+- (void)otherMouseUp:(NSEvent*)event
+{
+	custom_view_bridge::mouse_up(window, event);
+}
+
+- (void)otherMouseDragged:(NSEvent*)event
+{
+	custom_view_bridge::mouse_move(window, event);
+}
+
+- (void)scrollWheel:(NSEvent*)event
+{
+	custom_view_bridge::mouse_scroll(window, event);
+}
+
+- (void)flagsChanged:(NSEvent*)event
+{
+	custom_view_bridge::flags_changed(window, event);
+}
 
 @end
 
@@ -148,6 +265,10 @@ namespace vkb
 
 		delegate_ = [[win_delegate alloc] init:this];
 		[win_ setDelegate:delegate_];
+
+		[win_ makeFirstResponder:view];
+		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+		[NSApp activateIgnoringOtherApps:YES];
 
 		display::get().add_window(this);
 	}

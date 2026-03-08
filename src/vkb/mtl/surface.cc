@@ -31,6 +31,13 @@ namespace vkb::mtl
 		layer_->release();
 	}
 
+	mc::pair<uint32_t, uint32_t> surface::get_size()
+	{
+		CGSize drawable_size = layer_->drawableSize();
+		return {static_cast<uint32_t>(drawable_size.width),
+		        static_cast<uint32_t>(drawable_size.height)};
+	}
+
 	CA::MetalDrawable* surface::get_drawable()
 	{
 		return layer_->nextDrawable();

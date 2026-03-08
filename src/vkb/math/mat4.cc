@@ -5,6 +5,8 @@
 #include <math.h>
 #include <string.h>
 
+#include "../log.hh"
+
 namespace vkb
 {
 	// clang-format off
@@ -82,15 +84,15 @@ namespace vkb
 			t = r / asp_ratio;
 		}
 
-		float nf = -(far) / (far - near);
+		float nf = (far) / (far - near);
 		float nf2 = -(far * near) / (far - near);
 
 		// clang-format off
 		return {
-			near / r, 0.f,       0.f,  0.f,
-			0.f,      -near / t, 0.f,  0.f,
-			0.f,      0.f,       nf,   -1.f,
-			0.f,      0.f,       nf2, 0.f
+			near / r, 0.f,      0.f, 0.f,
+			0.f,      0.f,      nf,  1.f,
+			0.f,      near / t, 0.f, 0.f,
+			0.f,      0.f,      nf2, 0.f
 		};
 		// clang-format on
 	}

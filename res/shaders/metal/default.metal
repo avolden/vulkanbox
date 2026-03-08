@@ -1,26 +1,45 @@
 #include <metal_stdlib>
 using namespace metal;
 
-// struct vertex
-// {
-// 	float4 pos;
-// 	float4 col;
-// 	float2 uv;
-// };
+struct vertex_in
+{
+	float4 pos;
+	float4 col;
+};
+
+struct vertex_out
+{
+    float4 pos [[position]];
+    float4 col;
+};
+
+struct vp_data
+{
+    float4x4 view;
+    float4x4 proj;
+};
+
+
 
 using vec4 = float[4];
 
-vertex float4
+vertex vertex_out
 vertexFunction(uint vertexID [[vertex_id]],
-             constant vec4* vertexPositions)
+             constant vertex_in* vertices,
+             constant vp_data* vp)
 {
-    float4 vertexOutPositions = float4(vertexPositions[vertexID][0],
-                                       vertexPositions[vertexID][1],
-                                       vertexPositions[vertexID][2],
-                                       1.0f);
-    return vertexOutPositions;
+    vertex_out out;
+    uint vertID = vertexID;
+    if (vertexID >= 3) { vertID = vertexID - 3; }
+    float4 pos = vertices[vertID].pos;
+    if (vertexID >= 3) {
+        pos.y += 2.f;
+    }
+    out.pos = (vp->proj * vp->view) * pos;
+    out.col = vertices[vertID].col;
+    return out;
 }
 
-fragment float4 fragmentFunction(float4 vertexOutPositions [[stage_in]]) {
-    return float4(182.0f/255.0f, 240.0f/255.0f, 228.0f/255.0f, 1.0f);
+fragment float4 fragmentFunction(vertex_out in [[stage_in]]) {
+    return in.col;
 }

@@ -7,6 +7,16 @@
 
 #include "keys.hh"
 
+#ifdef VKB_MAC
+#ifdef __OBJC__
+@class NSEvent;
+class custom_view_bridge;
+#else
+class NSEvent;
+class custom_view_bridge;
+#endif
+#endif
+
 namespace vkb
 {
 	class window;
@@ -14,6 +24,7 @@ namespace vkb
 	class input_system
 	{
 		friend window;
+		friend custom_view_bridge;
 
 	public:
 		input_system();
@@ -48,6 +59,14 @@ namespace vkb
 		void pointer_axis(uint32_t axis, int32_t state);
 
 		void keyboard_key(uint32_t key, uint32_t state);
+#elif defined(VKB_MAC)
+		void key_down(NSEvent* event);
+		void key_up(NSEvent* event);
+		void mouse_down(NSEvent* event);
+		void mouse_up(NSEvent* event);
+		void mouse_move(NSEvent* event);
+		void mouse_scroll(NSEvent* event);
+		void flags_changed(NSEvent* event);
 #endif
 		uint8_t key_states_[(mc::to_underlying(key::max_enum) * 2) / 8 + 1];
 		mc::pair<float, float>     wheel_ {0.f, 0.f};

@@ -3,6 +3,7 @@
 #include "../input/input_system.hh"
 #include "../win/window.hh"
 
+#include "../log.hh"
 #include "../math/quat.hh"
 #include "../math/trig.hh"
 #include <math.h>
@@ -27,7 +28,7 @@ namespace vkb::cam
 			win_.show_mouse();
 		}
 
-		if (is_.pressed(key::m2))
+		if (is_.pressed(key::m1))
 		{
 			auto [delta_x, delta_y] = is_.mouse_delta();
 			yaw_ = fmodf(yaw_ + delta_x * .2, 360.f);
@@ -58,9 +59,8 @@ namespace vkb::cam
 		vel.norm3();
 		pos_ += rot.rotate(vel * vel_modifier);
 
-		// +90 to pitch, to turn the z axis to up axis, and y axis to front axis
 		rot_mat_ = mat4::rotate({0.f, 0.f, 1.f, 1.f}, rad(-yaw_)) *
-		           mat4::rotate({1.f, 0.f, 0.f, 1.f}, rad(-pitch_ + 90));
+		           mat4::rotate({1.f, 0.f, 0.f, 1.f}, rad(-pitch_));
 		view_mat_ = mat4::translate(-pos_) * rot_mat_;
 	}
 }

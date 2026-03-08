@@ -1,3 +1,4 @@
+#include "cam/free.hh"
 #include "cam/orbital.hh"
 #include "core/time.hh"
 #include "input/input_system.hh"
@@ -59,7 +60,7 @@ int main(int argc, char** argv)
 
 	context ctx(surface);
 
-	// cam::orbital cam(is, main_window);
+	cam::orbital cam(is, main_window);
 	// ui::context  ui_ctx(main_window, is, ctx);
 
 	// vk::sky_sphere sky;
@@ -142,6 +143,7 @@ int main(int argc, char** argv)
 	// modules.emplace_back(mat4::scale({.5f, .5f, .5f, 1.f}) *
 	//                      mat4::translate({2.f, 0.f, 0.f, 1.f}));
 
+	uint32_t cur_img = 0;
 	while (running)
 	{
 #ifdef USE_SUPERLUMINAL
@@ -153,7 +155,7 @@ int main(int argc, char** argv)
 
 		is.clear_transitions();
 		disp.update();
-		// cam.update(dt);
+		cam.update(dt);
 
 		// for (uint32_t i {0}; i < objs.size(); i++)
 		// 	objs[i].update(dt);
@@ -174,13 +176,15 @@ int main(int argc, char** argv)
 			// 	coords.prepare_draw(ctx.current_command_buffer(), ctx.current_img_idx(),
 			// cam, 	                    coords_proj, translate);
 
-			// 	ctx.begin_draw();
+			// 	ct	x.begin_draw();
 			// 	sky.draw(ctx.current_command_buffer(), ctx.current_img_idx());
 			// 	mod.draw(ctx.current_command_buffer(), ctx.current_img_idx(), model,
 			// modules); 	coords.draw(ctx.current_command_buffer(),
 			// ctx.current_img_idx()); 	ui_ctx.draw();
-			triangle_mat.draw(ctx.current_render_command());
+			triangle_mat.prepare_draw(cur_img, cam.view_mat(), ctx.get_proj());
+			triangle_mat.draw(cur_img, ctx.current_render_command());
 			ctx.present();
+			cur_img = (cur_img + 1) % 2;
 		}
 
 		if (main_window.closed())

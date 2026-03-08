@@ -22,11 +22,13 @@ struct libdecor_configuration;
 @class NSView;
 @class NSWindow;
 @class win_delegate;
+class custom_view_bridge;
 class win_delegate_bridge;
 #else
 class NSView;
 class NSWindow;
 class win_delegate;
+class custom_view_bridge;
 class win_delegate_bridge;
 #endif
 #endif
@@ -36,6 +38,7 @@ namespace vkb
 	class window
 	{
 		friend display;
+		friend custom_view_bridge;
 		friend win_delegate_bridge;
 
 	public:

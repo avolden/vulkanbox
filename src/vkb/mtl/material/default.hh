@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 namespace MTL
 {
 	class RenderPipelineState;
@@ -7,6 +9,11 @@ namespace MTL
 	class Buffer;
 
 	class RenderCommandEncoder;
+}
+
+namespace vkb
+{
+	class mat4;
 }
 
 namespace vkb::mtl
@@ -17,11 +24,14 @@ namespace vkb::mtl
 		triangle();
 		~triangle();
 
-		void draw(MTL::RenderCommandEncoder* cmd);
+		void prepare_draw(uint32_t cur_img, mat4 const& view, mat4 const& proj);
+		void draw(uint32_t cur_img, MTL::RenderCommandEncoder* cmd);
 
 	private:
 		MTL::Library*             lib_ {nullptr};
-		MTL::Buffer*              buf_ {nullptr};
+		MTL::Buffer*              model_ {nullptr};
 		MTL::RenderPipelineState* pso_ {nullptr};
+
+		MTL::Buffer* vp_[2] {nullptr};
 	};
 }
