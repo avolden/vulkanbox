@@ -18,6 +18,9 @@ namespace vkb
 
 namespace vkb::mtl
 {
+	struct texture;
+	struct model;
+
 	class triangle
 	{
 	public:
@@ -25,7 +28,8 @@ namespace vkb::mtl
 		~triangle();
 
 		void prepare_draw(uint32_t cur_img, mat4 const& view, mat4 const& proj);
-		void draw(uint32_t cur_img, MTL::RenderCommandEncoder* cmd);
+		void draw(model const& mod, texture const& tex, uint32_t cur_img,
+		          MTL::RenderCommandEncoder* cmd);
 
 	private:
 		MTL::Library*             lib_ {nullptr};

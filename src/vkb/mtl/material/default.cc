@@ -4,6 +4,8 @@
 #include "../../math/vec4.hh"
 
 #include "../instance.hh"
+#include "../model.hh"
+#include "../texture.hh"
 #include <Foundation/NSError.hpp>
 #include <Foundation/NSString.hpp>
 #include <Metal/MTLBuffer.hpp>
@@ -81,12 +83,15 @@ namespace vkb::mtl
 		memcpy(buf->contents(), &vp, sizeof(vp));
 	}
 
-	void triangle::draw(uint32_t cur_img, MTL::RenderCommandEncoder* cmd)
+	void triangle::draw(model const& mod, texture const& tex, uint32_t cur_img,
+	                    MTL::RenderCommandEncoder* cmd)
 	{
 		cmd->setRenderPipelineState(pso_);
-		cmd->setVertexBuffer(model_, 0, 0);
-		cmd->setVertexBuffer(vp_[cur_img], 0, 1);
+		cmd->setVertexBuffer(mod.vertex_buf, 0, 0);
+		cmd->setVertexBuffer(mod.index_buf, 0, 1);
+		cmd->setVertexBuffer(vp_[cur_img], 0, 2);
+		cmd->setFragmentTexture(tex.tex, 0);
 		cmd->setCullMode(MTL::CullModeNone);
-		cmd->drawPrimitives(MTL::PrimitiveTypeTriangle, NS::Integer(0), 6);
+		cmd->drawPrimitives(MTL::PrimitiveTypeTriangle, NS::Integer(0), mod.idcs_count);
 	}
 }

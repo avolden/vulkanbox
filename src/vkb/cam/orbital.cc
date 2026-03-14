@@ -47,9 +47,9 @@ namespace vkb::cam
 
 		vec4 vel {0.f, 0.f, 0.f, 1.f};
 		if (is_.pressed(key::w))
-			vel.y -= dt * 5;
-		if (is_.pressed(key::s))
 			vel.y += dt * 5;
+		if (is_.pressed(key::s))
+			vel.y -= dt * 5;
 
 		if (is_.pressed(key::a))
 			vel.x -= dt * 5;
