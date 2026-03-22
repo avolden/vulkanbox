@@ -80,19 +80,8 @@ namespace vkb::mtl
 		color->setClearColor(MTL::ClearColor(col, col, col, 1.0));
 		color->setStoreAction(MTL::StoreActionStore);
 
-		MTL::DepthStencilDescriptor* depth_desc =
-			MTL::DepthStencilDescriptor::alloc()->init();
-		depth_desc->setDepthWriteEnabled(true);
-		depth_desc->setDepthCompareFunction(MTL::CompareFunctionLess);
-		MTL::DepthStencilState* depth_state =
-			inst.get_device()->newDepthStencilState(depth_desc);
-
-		depth_desc->release();
-
 		encoder_ = current_command_buffer_->renderCommandEncoder(desc);
-		encoder_->setDepthStencilState(depth_state);
 
-		depth_state->release();
 		desc->release();
 
 		return need_resize;

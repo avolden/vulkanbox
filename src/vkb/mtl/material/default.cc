@@ -9,6 +9,7 @@
 #include <Foundation/NSError.hpp>
 #include <Foundation/NSString.hpp>
 #include <Metal/MTLBuffer.hpp>
+#include <Metal/MTLDepthStencil.hpp>
 #include <Metal/MTLDevice.hpp>
 #include <Metal/MTLLibrary.hpp>
 #include <Metal/MTLPixelFormat.hpp>
@@ -65,7 +66,10 @@ namespace vkb::mtl
 			                                      MTL::ResourceStorageModeShared);
 	}
 
-	triangle::~triangle() {}
+	triangle::~triangle()
+	{
+		// TODO release resources
+	}
 
 	void triangle::prepare_draw(uint32_t cur_img, mat4 const& view, mat4 const& proj)
 	{
@@ -86,6 +90,19 @@ namespace vkb::mtl
 	void triangle::draw(model const& mod, texture const& tex, uint32_t cur_img,
 	                    MTL::RenderCommandEncoder* cmd)
 	{
+		instance& inst = instance::get();
+
+		MTL::DepthStencilDescriptor* depth_desc =
+			MTL::DepthStencilDescriptor::alloc()->init();
+		depth_desc->setDepthWriteEnabled(true);
+		depth_desc->setDepthCompareFunction(MTL::CompareFunctionLess);
+		MTL::DepthStencilState* depth_state =
+			inst.get_device()->newDepthStencilState(depth_desc);
+		cmd->setDepthStencilState(depth_state);
+
+		depth_state->release();
+		depth_desc->release();
+
 		cmd->setRenderPipelineState(pso_);
 		cmd->setVertexBuffer(mod.vertex_buf, 0, 0);
 		cmd->setVertexBuffer(mod.index_buf, 0, 1);

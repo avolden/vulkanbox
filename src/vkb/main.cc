@@ -15,6 +15,7 @@
 #else
 #include "mtl/context.hh"
 #include "mtl/instance.hh"
+#include "mtl/material/coordinates.hh"
 #include "mtl/material/default.hh"
 #include "mtl/model.hh"
 #include "mtl/surface.hh"
@@ -137,12 +138,14 @@ int main(int argc, char** argv)
 
 	// vk::module mod(tex);
 
-	// vk::coordinates coords;
+	coordinates coords;
 
-	// // TODO Create a screen space context handling resizing
-	// auto [w, h] = surface.get_extent();
-	// mat4 coords_proj = mat4::ortho_proj(-50.f, 50.f, 0, w, h, 0);
-	// vec2 translate {(75.f * 2 / w), ((h - 75.f) * 2 / h)};
+	// TODO Create a screen space context handling resizing
+	auto [w, h] = surface.get_size();
+	mat4 coords_proj = mat4::ortho_proj(-50.f, 50.f, 0, w, h, 0);
+	vec2 translate {(75.f * 2 / w), (75.f * 2 / h)};
+	// translate.x = 1;
+	// translate.y = 1;
 
 	// mc::vector<mat4> modules;
 	// modules.emplace_back(mat4::scale({.5f, .5f, .5f, 1.f}));
@@ -177,24 +180,23 @@ int main(int argc, char** argv)
 			// 	ui_ctx.update(dt);
 			if (ctx.prepare_draw())
 			{
-				// 		auto [w, h] = surface.get_extent();
-				// 		coords_proj = mat4::ortho_proj(-50.f, 50.f, 0, w, h, 0);
-				// 		translate = {(75.f * 2 / w), ((h - 75.f) * 2 / h)};
+				auto [w, h] = surface.get_size();
+				coords_proj = mat4::ortho_proj(-50.f, 50.f, 0, w, h, 0);
+				translate = {(75.f * 2 / w), ((h - 75.f) * 2 / h)};
 			}
 			// 	sky.prepare_draw(ctx.current_command_buffer(), ctx.current_img_idx(), cam,
 			// 	                 ctx.get_proj());
 			// 	mod.prepare_draw(ctx.current_command_buffer(), ctx.current_img_idx(), cam,
 			// 	                 ctx.get_proj());
-			// 	coords.prepare_draw(ctx.current_command_buffer(), ctx.current_img_idx(),
-			// cam, 	                    coords_proj, translate);
 
 			// 	ct	x.begin_draw();
 			// 	sky.draw(ctx.current_command_buffer(), ctx.current_img_idx());
 			// 	mod.draw(ctx.current_command_buffer(), ctx.current_img_idx(), model,
-			// modules); 	coords.draw(ctx.current_command_buffer(),
-			// ctx.current_img_idx()); 	ui_ctx.draw();
+			// modules); 	; 	ui_ctx.draw();
 			triangle_mat.prepare_draw(cur_img, cam.view_mat(), ctx.get_proj());
+			coords.prepare_draw(cur_img, cam, coords_proj, translate);
 			triangle_mat.draw(cube, tex, cur_img, ctx.current_render_command());
+			coords.draw(cur_img, ctx.current_render_command());
 			ctx.present();
 			cur_img = (cur_img + 1) % 2;
 		}
