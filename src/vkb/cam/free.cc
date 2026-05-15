@@ -36,10 +36,13 @@ namespace vkb::cam
 			pitch_ += delta_y * .2;
 		}
 
-		quat rot = quat::angle_axis({1.f, 0.f, 0.f, 1.f}, rad(-pitch_)) *
-		           quat::angle_axis({0.f, 0.f, 1.f, 1.f}, rad(-yaw_));
+		quat rot = quat::angle_axis({1.f, 0.f, 0.f, 0.f}, rad(-pitch_)) *
+		           quat::angle_axis({0.f, 0.f, 1.f, 0.f}, rad(-yaw_));
 
-		vec4 vel {0.f, 0.f, 0.f, 1.f};
+		fwd_ = rot.rotate({0.f, -1.f, 0.f, 0.f});
+		up_ = rot.rotate({0.f, 0.f, 1.f, 0.f});
+
+		vec4 vel {0.f, 0.f, 0.f, 0.f};
 		if (is_.pressed(key::w))
 			vel.y += dt * 5;
 		if (is_.pressed(key::s))
@@ -59,8 +62,8 @@ namespace vkb::cam
 		vel.norm3();
 		pos_ += rot.rotate(vel * vel_modifier);
 
-		rot_mat_ = mat4::rotate({0.f, 0.f, 1.f, 1.f}, rad(-yaw_)) *
-		           mat4::rotate({1.f, 0.f, 0.f, 1.f}, rad(-pitch_));
+		rot_mat_ = mat4::rotate({0.f, 0.f, 1.f, 0.f}, rad(-yaw_)) *
+		           mat4::rotate({1.f, 0.f, 0.f, 0.f}, rad(-pitch_));
 		view_mat_ = mat4::translate(-pos_) * rot_mat_;
 	}
 }

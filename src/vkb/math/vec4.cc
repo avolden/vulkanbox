@@ -172,7 +172,7 @@ namespace vkb
 	{
 		float len = sqrtf(x * x + y * y + z * z);
 
-		return {x / len, y / len, z / len, 1.f};
+		return {x / len, y / len, z / len, w};
 	}
 
 	float vec4::dot(vec4 vec) const

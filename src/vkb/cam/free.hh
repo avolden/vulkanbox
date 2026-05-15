@@ -32,7 +32,6 @@ namespace vkb::cam
 		input_system& is_;
 		window&       win_;
 
-		vec4  pos_ {0.f, 0.f, 0.f, 1.f};
 		float yaw_ {0.f};
 		float pitch_ {0.f};
 	};

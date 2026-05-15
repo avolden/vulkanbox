@@ -11,4 +11,19 @@ namespace vkb::cam
 	{
 		return rot_mat_;
 	}
+
+	vec4 base::pos() const
+	{
+		return pos_;
+	}
+
+	vec4 base::up() const
+	{
+		return up_;
+	}
+
+	vec4 base::fwd() const
+	{
+		return fwd_;
+	}
 }

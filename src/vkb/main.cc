@@ -25,10 +25,14 @@
 
 #include "log.hh"
 #include "math/math.hh"
+#include "math/plane.hh"
+#include "math/quat.hh"
+#include "math/ray.hh"
 #include "math/trig.hh"
 #include "math/vec2.hh"
 
 #include <math.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -59,20 +63,11 @@ int main(int argc, char** argv)
 
 	triangle triangle_mat;
 
-	// inst.create_device(surface);
-	// surface.create_swapchain();
-
 	context ctx(surface);
 
 	cam::orbital cam(is, main_window);
-	// ui::context  ui_ctx(main_window, is, ctx);
-
-	// vk::sky_sphere sky;
-
-	// bool running {ctx.created()};
-	bool running {true};
-	// vkb::log::assert(running, "Failed to initialize Vulkan context");
-	time::stamp last = time::now();
+	bool         running {true};
+	time::stamp  last = time::now();
 
 	struct alignas(16)
 	{
@@ -124,39 +119,21 @@ int main(int argc, char** argv)
 	model   cube {verts, sizeof(verts), idcs, sizeof(idcs)};
 	texture tex {"res/textures/tex.png"};
 
-	// ctx.set_proj(0.1f, 1000.f, 70.f);
-
-	// mc::vector<vk::object> objs;
-	// objs.reserve(100);
-
-	// srand(0);
-
-	// vk::model   model;
-	// vk::texture tex;
-	// ctx.init_model(model, verts, idcs);
-	// ctx.init_texture(tex, "res/textures/tex.png");
-
-	// vk::module mod(tex);
-
 	coordinates coords;
 
 	// TODO Create a screen space context handling resizing
 	auto [w, h] = surface.get_size();
 	mat4 coords_proj = mat4::ortho_proj(-50.f, 50.f, 0, w, h, 0);
 	vec2 translate {(75.f * 2 / w), (75.f * 2 / h)};
-	// translate.x = 1;
-	// translate.y = 1;
 
-	// mc::vector<mat4> modules;
-	// modules.emplace_back(mat4::scale({.5f, .5f, .5f, 1.f}));
-	// modules.emplace_back(mat4::scale({.5f, .5f, .5f, 1.f}) *
-	//                      mat4::translate({0.f, 0.f, 2.f, 1.f}));
-	// modules.emplace_back(mat4::scale({.5f, .5f, .5f, 1.f}) *
-	//                      mat4::translate({0.f, 0.f, 4.f, 1.f}));
-	// modules.emplace_back(mat4::scale({.5f, .5f, .5f, 1.f}) *
-	//                      mat4::translate({0.f, 2.f, 0.f, 1.f}));
-	// modules.emplace_back(mat4::scale({.5f, .5f, .5f, 1.f}) *
-	//                      mat4::translate({2.f, 0.f, 0.f, 1.f}));
+	plane planes[] {
+		{{1.f, 0.f, 0.f, 0.f},  {1.f, 0.f, 0.f, 1.f},  1.f},
+		{{0.f, 1.f, 0.f, 0.f},  {0.f, 1.f, 0.f, 1.f},  1.f},
+		{{0.f, 0.f, 1.f, 0.f},  {0.f, 0.f, 1.f, 1.f},  1.f},
+		{{-1.f, 0.f, 0.f, 0.f}, {-1.f, 0.f, 0.f, 1.f}, 1.f},
+		{{0.f, -1.f, 0.f, 0.f}, {0.f, -1.f, 0.f, 1.f}, 1.f},
+		{{0.f, 0.f, -1.f, 0.f}, {0.f, 0.f, -1.f, 1.f}, 1.f},
+	};
 
 	uint32_t cur_img = 0;
 	while (running)
@@ -172,33 +149,40 @@ int main(int argc, char** argv)
 		disp.update();
 		cam.update(dt);
 
-		// for (uint32_t i {0}; i < objs.size(); i++)
-		// 	objs[i].update(dt);
-
 		if (!main_window.closed() && !main_window.minimized())
 		{
-			// 	ui_ctx.update(dt);
 			if (ctx.prepare_draw())
 			{
 				auto [w, h] = surface.get_size();
 				coords_proj = mat4::ortho_proj(-50.f, 50.f, 0, w, h, 0);
 				translate = {(75.f * 2 / w), ((h - 75.f) * 2 / h)};
 			}
-			// 	sky.prepare_draw(ctx.current_command_buffer(), ctx.current_img_idx(), cam,
-			// 	                 ctx.get_proj());
-			// 	mod.prepare_draw(ctx.current_command_buffer(), ctx.current_img_idx(), cam,
-			// 	                 ctx.get_proj());
 
-			// 	ct	x.begin_draw();
-			// 	sky.draw(ctx.current_command_buffer(), ctx.current_img_idx());
-			// 	mod.draw(ctx.current_command_buffer(), ctx.current_img_idx(), model,
-			// modules); 	; 	ui_ctx.draw();
 			triangle_mat.prepare_draw(cur_img, cam.view_mat(), ctx.get_proj());
 			coords.prepare_draw(cur_img, cam, coords_proj, translate);
+
 			triangle_mat.draw(cube, tex, cur_img, ctx.current_render_command());
 			coords.draw(cur_img, ctx.current_render_command());
 			ctx.present();
 			cur_img = (cur_img + 1) % 2;
+		}
+
+		if (is.just_pressed(key::f))
+		{
+			auto  pos = is.mouse_pos();
+			auto  size = main_window.size();
+			float fov_x = (size.second * 75.f) / (float)size.first;
+			float angle_y = (pos.second / (float)size.second) * 75.f;
+			float angle_x = (pos.first / (float)size.first) * fov_x;
+
+			vec4 cam_right = cam.fwd().cross3(cam.up());
+			quat rot = quat::angle_axis(cam_right, rad(angle_y)) *
+			           quat::angle_axis(cam.up(), rad(angle_x));
+			ray r {cam.pos(), rot.rotate(cam.fwd()), 10.f};
+
+			for (uint32_t i {0}; i < sizeof(planes) / sizeof(plane); ++i)
+				if (planes[i].intersects(r))
+					log::info("Intersects [%i] !", i);
 		}
 
 		if (main_window.closed())
@@ -207,11 +191,6 @@ int main(int argc, char** argv)
 		PerformanceAPI_EndEvent();
 #endif
 	}
-
-	// ctx.wait_completion();
-
-	// ctx.destroy_texture(tex);
-	// ctx.destroy_model(model);
 
 	return 0;
 }

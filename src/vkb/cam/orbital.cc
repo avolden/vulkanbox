@@ -45,7 +45,7 @@ namespace vkb::cam
 		if (zoom_ < 0.3f)
 			zoom_ = 0.3f;
 
-		vec4 vel {0.f, 0.f, 0.f, 1.f};
+		vec4 vel {0.f, 0.f, 0.f, 0.f};
 		if (is_.pressed(key::w))
 			vel.y += dt * 5;
 		if (is_.pressed(key::s))
@@ -67,11 +67,13 @@ namespace vkb::cam
 
 		vec4 view_axis {0.f, zoom_ * -10.f, 0.f, 0.f};
 		view_axis = rot.rotate(view_axis);
-		vec4 cam_pos = view_pos_ + view_axis;
+		fwd_ = -view_axis.norm3();
+		up_ = rot.rotate({0.f, 0.f, 1.f, 0.f});
+		pos_ = view_pos_ + view_axis;
 
 		rot_mat_ = mat4::rotate({0.f, 0.f, 1.f, 0.f}, rad(-yaw_)) *
 		           mat4::rotate({1.f, 0.f, 0.f, 0.f}, rad(-pitch_));
-		view_mat_ = mat4::translate(-cam_pos) * rot_mat_;
+		view_mat_ = mat4::translate(-pos_) * rot_mat_;
 	}
 
 	vec4 orbital::view_pos() const
